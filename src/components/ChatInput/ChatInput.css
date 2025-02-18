@@ -1,0 +1,38 @@
+.chat-input {
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+}
+
+.input-container {
+  display: flex;
+  gap: 10px;
+}
+
+.input-container input,
+.input-container select {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.input-container button {
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.input-container button:hover {
+  background-color: #0056b3;
+}
+
+.input-container button:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}

@@ -1,0 +1,74 @@
+.chat-message {
+  margin-bottom: 15px;
+  padding: 10px 15px;
+  border-radius: 8px;
+  max-width: 80%;
+}
+
+.chat-message.user {
+  margin-left: auto;
+  background-color: #007bff;
+  color: white;
+  border-radius: 15px 15px 0 15px;
+}
+
+.chat-message.bot {
+  margin-right: auto;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 15px 15px 15px 0;
+}
+
+.chat-message.error {
+  background-color: #fff3f3;
+  border-color: #dc3545;
+}
+
+.message-content {
+  word-wrap: break-word;
+}
+
+.companies-list {
+  margin-top: 15px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.companies-list h4 {
+  margin-bottom: 15px;
+  color: #495057;
+  font-size: 1.1em;
+}
+
+.companies-section {
+  margin-bottom: 20px;
+}
+
+.companies-section h5 {
+  color: #6c757d;
+  margin-bottom: 10px;
+  font-size: 1em;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 5px;
+}
+
+.companies-section ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.companies-section li {
+  padding: 8px 12px;
+  margin-bottom: 5px;
+  background-color: white;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.companies-section li:hover {
+  background-color: #f1f3f5;
+}
