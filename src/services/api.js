@@ -8,10 +8,21 @@ export const processMessage = async(data) => {
         const response = await axios.post(`${API_URL}/process-message`, {
             message: data.message,
             sector: data.sector
+        }, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
         });
+        console.log('API Response:', response.data); // Para debugging
         return response.data;
     } catch (error) {
         console.error('API Error:', error);
+        console.error('Error details:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status
+        });
         throw error;
     }
 };
