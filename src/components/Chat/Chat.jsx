@@ -7,10 +7,10 @@ import { processMessage } from '../../services/api'
 function Chat() {
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
-  const [step, setStep] = useState(1)
   const [currentLocation, setCurrentLocation] = useState('')
+  const [awaitingSector, setAwaitingSector] = useState(false)
+  const VALID_SECTORS = ["Technology", "Financial Services", "Manufacturing"]
 
-  // Efecto para cargar los mensajes de bienvenida al iniciar
   useEffect(() => {
     const welcomeMessages = [
       {
@@ -32,55 +32,61 @@ function Chat() {
   const handleSendMessage = async (data) => {
     try {
       setLoading(true)
+      const userMessage = data.value;
+      
+      // Agregar mensaje del usuario
+      setMessages(prev => [...prev, { text: userMessage, type: 'user' }]);
 
-      if (data.type === 'location') {
-        // Manejar la entrada de ubicación
-        setCurrentLocation(data.value)
-        setMessages(prev => [...prev,
-          { text: data.value, type: 'user' },
-          { text: "Please select a sector:", type: 'bot' }
-        ])
-        setStep(2)
-        setLoading(false)
-      } else if (data.type === 'complete') {
-        // Manejar la selección del sector
-        const requestData = {
-          message: currentLocation,
-          sector: data.sector
-        };
+      if (!currentLocation) {
+        // Primera etapa: guardar ubicación
+        setCurrentLocation(userMessage)
+        setAwaitingSector(true)
+        setMessages(prev => [...prev, {
+          text: `Please tell me which sector you're interested in. Available sectors are: ${VALID_SECTORS.join(', ')}`,
+          type: 'bot'
+        }])
+      } else if (awaitingSector) {
+        // Segunda etapa: procesar sector
+        const sector = VALID_SECTORS.find(s => 
+          userMessage.toLowerCase().includes(s.toLowerCase())
+        );
 
-        console.log('Sending to backend:', requestData);
-
-        const response = await processMessage(requestData);
-        console.log('Backend response:', response);
-
-        // Agregar el mensaje del sector seleccionado
-        setMessages(prev => [...prev, { 
-          text: `Selected sector: ${data.sector}`, 
-          type: 'user' 
-        }]);
-
-        if (response.success) {
-          // Agregar la respuesta con las empresas
+        if (!sector) {
           setMessages(prev => [...prev, {
-            text: response.message,
-            type: 'bot',
-            companies: response.companies
-          }]);
-
-          // Reiniciar para una nueva búsqueda
-          setStep(1);
-          setCurrentLocation('');
-          setMessages(prev => [...prev, {
-            text: "Would you like to search for more companies? Please enter a new location:",
+            text: `I couldn't recognize that sector. Please choose from: ${VALID_SECTORS.join(', ')}`,
             type: 'bot'
           }]);
         } else {
-          setMessages(prev => [...prev, {
-            text: response.message || "An error occurred",
-            type: 'bot',
-            isError: true
-          }]);
+          const requestData = {
+            message: currentLocation,
+            sector: sector
+          };
+
+          console.log('Sending to backend:', requestData);
+          const response = await processMessage(requestData);
+          console.log('Backend response:', response);
+
+          if (response.success) {
+            setMessages(prev => [...prev, {
+              text: response.message,
+              type: 'bot',
+              companies: response.companies
+            }]);
+
+            // Reiniciar para nueva búsqueda
+            setCurrentLocation('');
+            setAwaitingSector(false);
+            setMessages(prev => [...prev, {
+              text: "Would you like to search for more companies? Please enter a new location:",
+              type: 'bot'
+            }]);
+          } else {
+            setMessages(prev => [...prev, {
+              text: response.message || "An error occurred",
+              type: 'bot',
+              isError: true
+            }]);
+          }
         }
       }
     } catch (error) {
@@ -117,7 +123,6 @@ function Chat() {
       <ChatInput 
         onSendMessage={handleSendMessage}
         disabled={loading}
-        step={step}
       />
     </div>
   )
