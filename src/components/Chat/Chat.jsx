@@ -10,6 +10,7 @@ function Chat() {
   const [currentLocation, setCurrentLocation] = useState('')
   const [awaitingSector, setAwaitingSector] = useState(false)
   const VALID_SECTORS = ["Technology", "Financial Services", "Manufacturing"]
+  const [currentStep, setCurrentStep] = useState('region')
 
   useEffect(() => {
     const welcomeMessages = [
@@ -25,20 +26,77 @@ function Chat() {
         text: "Please enter a location (e.g., China, USA, Europe):",
         type: 'bot'
       }
-    ];
-    setMessages(welcomeMessages);
-  }, []);
+    ]
+    setMessages(welcomeMessages)
+  }, [])
 
   const handleSendMessage = async (data) => {
     try {
       setLoading(true)
-      const userMessage = data.value;
+      const userMessage = data.value
       
-      // Agregar mensaje del usuario
-      setMessages(prev => [...prev, { text: userMessage, type: 'user' }]);
+      if (!data.type || data.type === 'message') {
+        setMessages(prev => [...prev, { text: userMessage, type: 'user' }])
+      }
+      
+      if (data.type === 'voice') { 
+        const response = data.response
+
+        setMessages(prev => [...prev, {
+          text: response.transcription,
+          type: 'user'
+        }])
+        
+        if (response.step === 'region' && response.success) {
+          setCurrentLocation(response.region)
+          setCurrentStep('sector')
+          setAwaitingSector(true)
+          setMessages(prev => [...prev, { 
+            text: response.message,
+            type: 'bot'
+          }])
+        
+        } else if (response.step === 'complete') { 
+          const sector = VALID_SECTORS.find(s =>
+            response.sector.toLowerCase() === s.toLowerCase()
+          );
+
+          if (!sector) { 
+            setMessages(prev => [...prev, { 
+              text: `I couldn't recognize that sector. Please choose from: ${VALID_SECTORS.join(', ')}`,
+              type: 'bot',
+              isError: true
+            }])
+            return
+          }
+
+          const requestData = {
+            message: currentLocation,
+            sector: sector
+          };
+
+          const apiResponse = await processMessage(requestData);
+
+          if (apiResponse.success) {
+            setMessages(prev => [...prev, {
+              text: apiResponse.message,
+              type: 'bot',
+              companies: apiResponse.companies
+            }]);
+
+            setCurrentLocation('')
+            setAwaitingSector(false)
+            setCurrentStep('region')
+            setMessages(prev => [...prev, { 
+              text: "Would you like to search for more companies? Please enter a new location:",
+              type: 'bot'
+            }])
+          }
+        }
+        return
+      }
 
       if (!currentLocation) {
-        // Primera etapa: guardar ubicación
         setCurrentLocation(userMessage)
         setAwaitingSector(true)
         setMessages(prev => [...prev, {
@@ -46,58 +104,57 @@ function Chat() {
           type: 'bot'
         }])
       } else if (awaitingSector) {
-        // Segunda etapa: procesar sector
         const sector = VALID_SECTORS.find(s => 
           userMessage.toLowerCase().includes(s.toLowerCase())
-        );
+        )
 
         if (!sector) {
           setMessages(prev => [...prev, {
             text: `I couldn't recognize that sector. Please choose from: ${VALID_SECTORS.join(', ')}`,
             type: 'bot'
-          }]);
+          }])
         } else {
           const requestData = {
             message: currentLocation,
             sector: sector
-          };
+          }
 
-          console.log('Sending to backend:', requestData);
-          const response = await processMessage(requestData);
-          console.log('Backend response:', response);
+          console.log('Sending to backend:', requestData)
+          const response = await processMessage(requestData)
+          console.log('Backend response:', response)
 
           if (response.success) {
             setMessages(prev => [...prev, {
               text: response.message,
               type: 'bot',
               companies: response.companies
-            }]);
+            }])
 
-            // Reiniciar para nueva búsqueda
-            setCurrentLocation('');
-            setAwaitingSector(false);
+            setCurrentLocation('')
+            setAwaitingSector(false)
+            setCurrentStep('region')
             setMessages(prev => [...prev, {
               text: "Would you like to search for more companies? Please enter a new location:",
               type: 'bot'
-            }]);
+            }])
           } else {
             setMessages(prev => [...prev, {
               text: response.message || "An error occurred",
               type: 'bot',
               isError: true
-            }]);
+            }])
           }
         }
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error:', error)
       setMessages(prev => [...prev, {
         text: "Sorry, there was an error processing your request.",
         type: 'bot',
         isError: true
-      }]);
+      }])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
@@ -123,6 +180,8 @@ function Chat() {
       <ChatInput 
         onSendMessage={handleSendMessage}
         disabled={loading}
+        currentStep={currentStep}
+        currentRegion={currentLocation}
       />
     </div>
   )

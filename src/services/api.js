@@ -26,3 +26,29 @@ export const processMessage = async(data) => {
         throw error;
     }
 };
+
+
+export const processVoice = async(audioBlob, step, region = null) => {
+    try {
+
+        const formData= new FormData();
+        formData.append('audio', audioBlob, 'audio.wav');
+        formData.append('step', step);
+        if (region){
+            formData.append('region',region);
+        }
+
+        const response = await axios.post(`${API_URL}/api/ai/voice/process`, formData, {
+            headers: {
+                'Content-Type':'multipart/form-data',
+            }
+        });
+        console.log('Voice API Response:', response.data);
+        return response.data;
+
+
+    } catch(error){
+        console.error('Voice API Error:', error)
+        throw error;
+    }
+}
