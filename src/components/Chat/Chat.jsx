@@ -9,150 +9,118 @@ function Chat() {
   const [loading, setLoading] = useState(false)
   const [currentLocation, setCurrentLocation] = useState('')
   const [awaitingSector, setAwaitingSector] = useState(false)
-  const VALID_SECTORS = ["Technology", "Financial Services", "Manufacturing"]
   const [currentStep, setCurrentStep] = useState('region')
 
   useEffect(() => {
     const welcomeMessages = [
-      {
-        text: "Welcome to our Expert Consultation Service.",
-        type: 'bot'
-      },
-      {
-        text: "I can help you find companies based on location and sector.",
-        type: 'bot'
-      },
-      {
-        text: "Please enter a location (e.g., China, USA, Europe):",
-        type: 'bot'
-      }
+      { text: "Welcome to our Expert Consultation Service.", type: 'bot' },
+      { text: "I can help you find companies based on location and sector.", type: 'bot' },
+      { text: "Please enter a location (e.g., China, USA, Europe):", type: 'bot' }
     ]
     setMessages(welcomeMessages)
   }, [])
+
+  const addMessage = (message) => {
+    setMessages(prev => [...prev, message])
+  }
+
+  const resetState = (detected_language) => {
+    setCurrentLocation('')
+    setAwaitingSector(false)
+    setCurrentStep('region')
+    
+    const newLocationPrompt = detected_language === 'es'
+      ? "¿Desea buscar más empresas? Por favor, ingrese una nueva ubicación:"
+      : "Would you like to search for more companies? Please enter a new location:"
+    
+    addMessage({ text: newLocationPrompt, type: 'bot' })
+  }
 
   const handleSendMessage = async (data) => {
     try {
       setLoading(true)
       const userMessage = data.value
-      
-      if (!data.type || data.type === 'message') {
-        setMessages(prev => [...prev, { text: userMessage, type: 'user' }])
-      }
-      
-      if (data.type === 'voice') { 
-        const response = data.response
 
-        setMessages(prev => [...prev, {
-          text: response.transcription,
-          type: 'user'
-        }])
-        
-        if (response.step === 'region' && response.success) {
-          setCurrentLocation(response.region)
-          setCurrentStep('sector')
-          setAwaitingSector(true)
-          setMessages(prev => [...prev, { 
-            text: response.message,
-            type: 'bot'
-          }])
-        
-        } else if (response.step === 'complete') { 
-          const sector = VALID_SECTORS.find(s =>
-            response.sector.toLowerCase() === s.toLowerCase()
-          );
+      // Mostrar mensaje del usuario si no es un error
+      if (data.type === 'message') {
+        addMessage({ text: userMessage, type: 'user' })
 
-          if (!sector) { 
-            setMessages(prev => [...prev, { 
-              text: `I couldn't recognize that sector. Please choose from: ${VALID_SECTORS.join(', ')}`,
+        if (!currentLocation) {
+          // Procesando ubicación
+          try {
+            const response = await fetch('http://localhost:8080/api/ai/test/process-text', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: userMessage })
+            })
+            
+            const responseData = await response.json()
+            
+            if (responseData.success) {
+              setCurrentLocation(responseData.region)
+              setCurrentStep('sector')
+              setAwaitingSector(true)
+              addMessage({
+                text: responseData.message,
+                type: 'bot',
+                messages: responseData.messages,
+                detected_language: responseData.detected_language
+              })
+            } else {
+              addMessage({
+                text: responseData.message || "An error occurred",
+                type: 'bot',
+                isError: true
+              })
+            }
+          } catch (error) {
+            console.error('Error:', error)
+            addMessage({
+              text: "Error processing region",
               type: 'bot',
               isError: true
-            }])
-            return
+            })
           }
-
-          const requestData = {
+        } else if (awaitingSector) {
+          // Procesando sector
+          const response = await processMessage({
             message: currentLocation,
-            sector: sector
-          };
-
-          const apiResponse = await processMessage(requestData);
-
-          if (apiResponse.success) {
-            setMessages(prev => [...prev, {
-              text: apiResponse.message,
-              type: 'bot',
-              companies: apiResponse.companies
-            }]);
-
-            setCurrentLocation('')
-            setAwaitingSector(false)
-            setCurrentStep('region')
-            setMessages(prev => [...prev, { 
-              text: "Would you like to search for more companies? Please enter a new location:",
-              type: 'bot'
-            }])
-          }
-        }
-        return
-      }
-
-      if (!currentLocation) {
-        setCurrentLocation(userMessage)
-        setAwaitingSector(true)
-        setMessages(prev => [...prev, {
-          text: `Please tell me which sector you're interested in. Available sectors are: ${VALID_SECTORS.join(', ')}`,
-          type: 'bot'
-        }])
-      } else if (awaitingSector) {
-        const sector = VALID_SECTORS.find(s => 
-          userMessage.toLowerCase().includes(s.toLowerCase())
-        )
-
-        if (!sector) {
-          setMessages(prev => [...prev, {
-            text: `I couldn't recognize that sector. Please choose from: ${VALID_SECTORS.join(', ')}`,
-            type: 'bot'
-          }])
-        } else {
-          const requestData = {
-            message: currentLocation,
-            sector: sector
-          }
-
-          console.log('Sending to backend:', requestData)
-          const response = await processMessage(requestData)
-          console.log('Backend response:', response)
+            sector: userMessage
+          })
 
           if (response.success) {
-            setMessages(prev => [...prev, {
+            addMessage({
               text: response.message,
               type: 'bot',
-              companies: response.companies
-            }])
-
-            setCurrentLocation('')
-            setAwaitingSector(false)
-            setCurrentStep('region')
-            setMessages(prev => [...prev, {
-              text: "Would you like to search for more companies? Please enter a new location:",
-              type: 'bot'
-            }])
+              companies: response.companies,
+              messages: response.messages,
+              detected_language: response.detected_language,
+              sector: response.sector
+            })
+            resetState(response.detected_language)
           } else {
-            setMessages(prev => [...prev, {
+            addMessage({
               text: response.message || "An error occurred",
               type: 'bot',
               isError: true
-            }])
+            })
           }
         }
+      } else if (data.type === 'error') {
+        // Manejo de errores
+        addMessage({
+          text: data.value,
+          type: 'bot',
+          isError: true
+        })
       }
     } catch (error) {
       console.error('Error:', error)
-      setMessages(prev => [...prev, {
+      addMessage({
         text: "Sorry, there was an error processing your request.",
         type: 'bot',
         isError: true
-      }])
+      })
     } finally {
       setLoading(false)
     }
@@ -168,10 +136,7 @@ function Chat() {
         {messages.map((message, index) => (
           <ChatMessage 
             key={index}
-            text={message.text}
-            type={message.type}
-            companies={message.companies}
-            isError={message.isError}
+            {...message}
           />
         ))}
         {loading && <div className="loading">Processing your request...</div>}

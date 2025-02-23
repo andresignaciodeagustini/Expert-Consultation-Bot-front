@@ -2,56 +2,68 @@ import { useEffect } from 'react'
 import './ChatMessage.css'
 import PropTypes from 'prop-types'
 
-function ChatMessage({ text, type, companies, isError }) {
+function ChatMessage({ text, type, companies, messages, detected_language, isError }) {
   useEffect(() => {
     console.log('ChatMessage mounted/updated with props:', {
       text,
       type,
       companies,
+      messages,
+      detected_language,
       isError
     });
-  }, [text, type, companies, isError]);
+  }, [text, type, companies, messages, detected_language, isError]);
+
+  const renderCompanies = () => {
+    if (!companies) return null;
+
+    return (
+      <div className="companies-list">
+        {/* Zoho Companies */}
+        {companies.zoho && companies.zoho.length > 0 && (
+          <div className="zoho-companies">
+            <h4>{messages?.from_database || 'From Database:'}</h4>
+            <ul>
+              {companies.zoho.map((company) => (
+                <li key={company.id} className="company-item">
+                  <h5>{company.name}</h5>
+                  <div className="company-details">
+                    {company.industry && <p>Industry: {company.industry}</p>}
+                    {company.region_coverage && (
+                      <p>Regions: {company.region_coverage.join(', ')}</p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Suggested Companies */}
+        {companies.suggestions && companies.suggestions.length > 0 && (
+          <div className="suggested-companies">
+            <h4>{messages?.additional_suggestions || 'Additional Suggestions:'}</h4>
+            <ul>
+              {companies.suggestions.map((company, index) => (
+                <li key={index} className="suggestion-item">
+                  {company.name}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className={`chat-message ${type} ${isError ? 'error' : ''}`}>
       <div className="message-content">
-        {text}
-        
-        {companies && (
-          <div className="companies-list">
-            <h4>Companies Found:</h4>
-            <div className="companies-section">
-              {companies.zoho_companies && companies.zoho_companies.length > 0 && (
-                <div>
-                  <h5>From Database:</h5>
-                  <ul>
-                    {companies.zoho_companies.map((company, index) => (
-                      <li key={index}>
-                        {company.name} - {company.industry}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              {companies.suggested_companies && companies.suggested_companies.length > 0 && (
-                <div>
-                  <h5>Additional Suggestions:</h5>
-                  <ul>
-                    {companies.suggested_companies.map((company, index) => (
-                      <li key={index}>
-                        {company.name}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        <p className="message-text">{text}</p>
+        {renderCompanies()}
       </div>
     </div>
-  )
+  );
 }
 
 ChatMessage.propTypes = {
@@ -59,23 +71,34 @@ ChatMessage.propTypes = {
   type: PropTypes.oneOf(['user', 'bot']).isRequired,
   isError: PropTypes.bool,
   companies: PropTypes.shape({
-    zoho_companies: PropTypes.arrayOf(
+    zoho: PropTypes.arrayOf(
       PropTypes.shape({
+        id: PropTypes.string,
         name: PropTypes.string.isRequired,
-        industry: PropTypes.string
+        industry: PropTypes.string,
+        region_coverage: PropTypes.arrayOf(PropTypes.string)
       })
     ),
-    suggested_companies: PropTypes.arrayOf(
+    suggestions: PropTypes.arrayOf(
       PropTypes.shape({
         name: PropTypes.string.isRequired
       })
-    )
-  })
-}
+    ),
+    total_count: PropTypes.number
+  }),
+  messages: PropTypes.shape({
+    additional_suggestions: PropTypes.string,
+    companies_found: PropTypes.string,
+    from_database: PropTypes.string
+  }),
+  detected_language: PropTypes.string
+};
 
 ChatMessage.defaultProps = {
   isError: false,
-  companies: null
-}
+  companies: null,
+  messages: null,
+  detected_language: null
+};
 
 export default ChatMessage

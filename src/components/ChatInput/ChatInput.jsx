@@ -11,53 +11,59 @@ function ChatInput({ onSendMessage, disabled, currentStep, currentRegion }) {
   const mediaRecorder = useRef(null)
   const audioChunks = useRef([])
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder.current = new MediaRecorder(stream);
-      audioChunks.current = [];
+  const handleVoiceRecording = async (start) => {
+    if (start) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        mediaRecorder.current = new MediaRecorder(stream)
+        audioChunks.current = []
 
-      mediaRecorder.current.ondataavailable = (event) => {
-        audioChunks.current.push(event.data);
-      };
-
-      mediaRecorder.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunks.current, { type: 'audio/wav' });
-        try {
-          const response = await processVoice(
-            audioBlob, 
-            currentStep, 
-            currentStep === 'sector' ? currentRegion : null
-          );
-          
-          onSendMessage({ 
-            type: 'voice', 
-            value: response.transcription,
-            response: response 
-          });
-        } catch (error) {
-          console.error('Error processing voice:', error);
-          onSendMessage({ 
-            type: 'error', 
-            value: 'Error processing voice message' 
-          });
+        mediaRecorder.current.ondataavailable = (event) => {
+          audioChunks.current.push(event.data)
         }
-      };
 
-      mediaRecorder.current.start();
-      setIsRecording(true);
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
-    }
-  };
+        mediaRecorder.current.onstop = async () => {
+          const audioBlob = new Blob(audioChunks.current, { type: 'audio/wav' })
+          try {
+            const response = await processVoice(
+              audioBlob,
+              currentStep,
+              currentStep === 'sector' ? currentRegion : null
+            )
 
-  const stopRecording = () => {
-    if (mediaRecorder.current && mediaRecorder.current.state === 'recording') {
-      mediaRecorder.current.stop();
-      setIsRecording(false);
-      mediaRecorder.current.stream.getTracks().forEach(track => track.stop());
+            if (response.transcription?.trim()) {
+              onSendMessage({
+                type: 'message',
+                value: response.transcription.trim()
+              })
+            } else {
+              onSendMessage({
+                type: 'error',
+                value: 'I could not understand what you said. Please try again.'
+              })
+            }
+          } catch (error) {
+            console.error('Error processing voice:', error)
+            onSendMessage({
+              type: 'error',
+              value: 'Sorry, there was an error processing your voice. Please try again.'
+            })
+          }
+        }
+
+        mediaRecorder.current.start()
+        setIsRecording(true)
+      } catch (error) {
+        console.error('Error accessing microphone:', error)
+      }
+    } else {
+      if (mediaRecorder.current?.state === 'recording') {
+        mediaRecorder.current.stop()
+        mediaRecorder.current.stream.getTracks().forEach(track => track.stop())
+        setIsRecording(false)
+      }
     }
-  };
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -78,8 +84,8 @@ function ChatInput({ onSendMessage, disabled, currentStep, currentRegion }) {
           disabled={disabled || isRecording}
         />
         <button 
-          type="button" 
-          onClick={isRecording ? stopRecording : startRecording}
+          type="button"
+          onClick={() => handleVoiceRecording(!isRecording)}
           className={`icon-button ${isRecording ? 'recording' : ''}`}
           disabled={disabled}
           title={isRecording ? "Stop recording" : "Start recording"}
@@ -87,7 +93,7 @@ function ChatInput({ onSendMessage, disabled, currentStep, currentRegion }) {
           {isRecording ? <FaMicrophoneSlash /> : <FaMicrophone />}
         </button>
         <button 
-          type="submit" 
+          type="submit"
           disabled={disabled || !message.trim() || isRecording}
           className="icon-button send-button"
           title="Send message"
@@ -100,11 +106,7 @@ function ChatInput({ onSendMessage, disabled, currentStep, currentRegion }) {
 }
 
 ChatInput.propTypes = {
-  onSendMessage: PropTypes.shape({
-    type: PropTypes.string,
-    value: PropTypes.string,
-    response: PropTypes.object
-  }),
+  onSendMessage: PropTypes.func,
   disabled: PropTypes.bool,
   currentStep: PropTypes.string,
   currentRegion: PropTypes.string
