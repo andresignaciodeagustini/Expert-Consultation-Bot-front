@@ -1,10 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import './Chat.css'
 import ChatInput from '../ChatInput/ChatInput'
 import ChatMessage from '../ChatMessage/ChatMessage'
 
 function Chat() {
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState([
+    {
+      text: "Welcome! Please enter your email:", 
+      type: 'bot'
+    }
+  ])
   const [loading, setLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState('email')
   const [currentPhase, setCurrentPhase] = useState(1)
@@ -18,17 +23,20 @@ function Chat() {
 
   const [phase2Data, setPhase2Data] = useState({
     sector: '',
-    region: '',
+    processed_region: '',
+    language: '',         
     companies: [],
-    countries: [],
+    interested_in_companies: false
   })
 
-  useEffect(() => {
-    addMessage({ 
-      text: "Welcome! Please enter your email:", 
-      type: 'bot' 
-    })
-  }, [])
+  
+
+
+
+
+
+
+
 
   const addMessage = (message) => {
     setMessages(prev => [...prev, message])
@@ -135,13 +143,21 @@ function Chat() {
     }
   }
 
+
+///////////////////////////////////////////////////////////////////////////////////////adfgsdfg
+
+
+
+
+
+
+
+
+
+
   const handleSectorSelection = async (sector) => {
     try {
-        addMessage({ 
-            text: `Selected sector: ${sector}`, 
-            type: 'user' 
-        });
-
+        
         const response = await fetch('http://localhost:8080/api/sector-experience', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -175,10 +191,7 @@ function Chat() {
 
   const handleRegionInput = async (region) => {
     try {
-        addMessage({ 
-            text: region, 
-            type: 'user' 
-        });
+       
 
         const response = await fetch('http://localhost:8080/api/ai/test/process-text', {
             method: 'POST',
@@ -193,7 +206,7 @@ function Chat() {
         const data = await response.json();
 
         if (data.success) {
-            setPhase2Data(prev => ({ ...prev, region: data.processed_region }));
+            setPhase2Data(prev => ({ ...prev, processed_region: data.processed_region }));
             addMessage({ 
                 text: data.next_question, 
                 type: 'bot',
@@ -210,14 +223,12 @@ function Chat() {
         });
     }
   };
-
+  
+  
+  
+  
   const handleCompaniesInput = async (companies) => {
     try {
-      addMessage({ 
-        text: companies, 
-        type: 'user' 
-      });
-
       const response = await fetch('http://localhost:8080/api/simple-expert-connection', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -226,13 +237,16 @@ function Chat() {
           language: userData.detectedLanguage
         })
       });
-
+  
       const data = await response.json();
-
+  
       if (data.success) {
+        const isInterested = companies.toLowerCase() !== 'no';
+        
         setPhase2Data(prev => ({ 
           ...prev, 
-          companies: data.companies || [] 
+          companies: data.companies || [],
+          interested_in_companies: isInterested
         }));
         
         addMessage({ 
@@ -241,11 +255,11 @@ function Chat() {
           options: data.options 
         });
         
-        if (data.interested_in_companies) {
-          setCurrentStep('countries');
-        } else {
-          setCurrentStep('complete');
-        }
+        // Siempre llamar a handleCompanySuggestions
+        await handleCompanySuggestions();
+        
+        // Continuar con el siguiente paso
+        setCurrentStep(isInterested ? 'countries' : 'complete');
       }
     } catch (error) {
       console.error('Error processing companies:', error);
@@ -256,6 +270,67 @@ function Chat() {
       });
     }
   };
+
+const handleCompanySuggestions = async () => {
+  try {
+    setLoading(true);
+
+    const bodyData = {
+      sector: phase2Data.sector,
+      processed_region: phase2Data.processed_region,
+      interested_in_companies: phase2Data.interested_in_companies,
+      language: userData.detectedLanguage
+    };
+
+    if (phase2Data.interested_in_companies) {
+      bodyData.companies = phase2Data.companies;
+    }
+
+    const response = await fetch('http://localhost:8080/api/company-suggestions-test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bodyData)
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      setPhase2Data(prev => ({
+        ...prev,
+        companies: data.companies
+      }));
+
+      // Crear el mensaje completo con la lista de compañías
+      const companiesList = data.companies.map((company, index) => 
+        `${index + 1}. ${company}`
+      ).join('\n');
+
+      const fullMessage = `${data.message}\n\n\n${companiesList}`;
+
+      addMessage({
+        text: fullMessage,
+        type: 'bot'
+      });
+
+      setCurrentStep('next_step');
+    } else {
+      addMessage({
+        text: data.message || 'Error getting company suggestions',
+        type: 'bot',
+        isError: true
+      });
+    }
+  } catch (error) {
+    console.error('Error getting company suggestions:', error);
+    addMessage({
+      text: 'Error getting company suggestions. Please try again.',
+      type: 'bot',
+      isError: true
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSendMessage = async (data) => {
     try {
@@ -311,9 +386,9 @@ function Chat() {
            (currentStep !== 'sector_selection' && 
             currentStep !== 'region' && 
             currentStep !== 'companies' &&
+            currentStep !== 'company_suggestions' &&
             currentStep === 'select_sector')
   }
-
   return (
     <div className="chat-container">
       <div className="chat-header">
