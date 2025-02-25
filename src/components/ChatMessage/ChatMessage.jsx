@@ -22,15 +22,15 @@ function ChatMessage({ text, type, companies, messages, detected_language, isErr
         {/* Zoho Companies */}
         {companies.zoho && companies.zoho.length > 0 && (
           <div className="zoho-companies">
-            <h4>{messages?.from_database || 'From Database:'}</h4>
+            <h4>{messages?.from_database}</h4>
             <ul>
               {companies.zoho.map((company) => (
                 <li key={company.id} className="company-item">
                   <h5>{company.name}</h5>
                   <div className="company-details">
-                    {company.industry && <p>Industry: {company.industry}</p>}
+                    {company.industry && <p>{company.industry}</p>}
                     {company.region_coverage && (
-                      <p>Regions: {company.region_coverage.join(', ')}</p>
+                      <p>{company.region_coverage.join(', ')}</p>
                     )}
                   </div>
                 </li>
@@ -39,10 +39,10 @@ function ChatMessage({ text, type, companies, messages, detected_language, isErr
           </div>
         )}
 
-        {/* Suggested Companies */}
+        
         {companies.suggestions && companies.suggestions.length > 0 && (
           <div className="suggested-companies">
-            <h4>{messages?.additional_suggestions || 'Additional Suggestions:'}</h4>
+            <h4>{messages?.additional_suggestions}</h4>
             <ul>
               {companies.suggestions.map((company, index) => (
                 <li key={index} className="suggestion-item">
