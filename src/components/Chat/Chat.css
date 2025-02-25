@@ -132,6 +132,94 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+/* Lista de expertos */
+.experts-list {
+  margin: 15px 0;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.experts-list h3 {
+  margin-bottom: 15px;
+  color: #2c3e50;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+/* Filtros aplicados */
+.applied-filters {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+}
+
+.applied-filters h4 {
+  color: #2c3e50;
+  margin-bottom: 10px;
+  font-size: 1em;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 5px;
+  font-weight: 600;
+}
+
+.applied-filters ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.applied-filters li {
+  padding: 8px 12px;
+  margin-bottom: 5px;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  color: #495057;
+  font-size: 0.9em;
+  transition: all 0.2s ease;
+}
+
+.applied-filters li:hover {
+  background-color: #f1f3f5;
+  transform: translateX(5px);
+}
+
+/* Tarjetas de expertos */
+.expert-card {
+  margin: 15px 0;
+  padding: 15px;
+  background-color: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  animation: fadeIn 0.3s ease-in-out;
+  animation-fill-mode: both;
+}
+
+.expert-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.expert-card h4 {
+  margin: 0 0 10px 0;
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.expert-card p {
+  margin: 0;
+  color: #495057;
+  font-size: 0.95em;
+  line-height: 1.5;
+}
+
 /* Indicador de carga */
 .loading {
   text-align: center;
@@ -144,12 +232,12 @@ body {
 /* Animaciones */
 @keyframes fadeIn {
   from {
-      opacity: 0;
-      transform: translateY(10px);
+    opacity: 0;
+    transform: translateY(10px);
   }
   to {
-      opacity: 1;
-      transform: translateY(0);
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -159,24 +247,45 @@ body {
   100% { opacity: 0.6; }
 }
 
+/* Animación específica para las tarjetas de expertos */
+.expert-card:nth-child(1) { animation-delay: 0.1s; }
+.expert-card:nth-child(2) { animation-delay: 0.2s; }
+.expert-card:nth-child(3) { animation-delay: 0.3s; }
+.expert-card:nth-child(4) { animation-delay: 0.4s; }
+.expert-card:nth-child(5) { animation-delay: 0.5s; }
+
 /* Responsive design */
 @media (max-width: 768px) {
   .chat-container {
-      height: 100vh;
-      margin: 0;
-      border-radius: 0;
+    height: 100vh;
+    margin: 0;
+    border-radius: 0;
   }
 
   .chat-header {
-      border-radius: 0;
+    border-radius: 0;
   }
 
   .chat-message {
-      max-width: 90%;
+    max-width: 90%;
   }
 
   .companies-list {
-      padding: 10px;
+    padding: 10px;
+  }
+
+  .experts-list {
+    padding: 10px;
+    margin: 10px 0;
+  }
+
+  .expert-card {
+    padding: 12px;
+    margin: 10px 0;
+  }
+
+  .applied-filters {
+    padding: 12px;
   }
 }
 
