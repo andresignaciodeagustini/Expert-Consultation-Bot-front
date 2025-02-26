@@ -33,11 +33,6 @@ function Chat() {
 
   const [phase3Data, setPhase3Data] = useState({
     employmentStatus: '',
-    selectedExperts: [],
-    expertPreferences: {},
-    isCompleted: false,
-    currentExpertStep: '', // Para trackear el paso específico dentro de la fase 3
-    companiesForExpertSearch: [],
     excludedCompanies: [],
     clientPerspective: '',
     supplyChainRequired: '',
@@ -304,6 +299,8 @@ function Chat() {
     }
 }
 
+
+
   const handleCompanySuggestions = async () => {
     try {
       setLoading(true);
@@ -393,27 +390,16 @@ function Chat() {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
+// Primera función - solo muestra la pregunta
 const handleEmploymentStatus = async () => {
   try {
     setLoading(true);
+    
     const response = await fetch('http://localhost:8080/api/specify-employment-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        status: '',
-        language: userData.detectedLanguage,
-        companies: phase2Data.companies
+        language: userData.detectedLanguage
       })
     });
 
@@ -424,43 +410,10 @@ const handleEmploymentStatus = async () => {
         text: data.message,
         type: 'bot'
       });
-      setCurrentStep('employment_status'); // Asegúrate que este cambio de estado se refleje
-      console.log('Current step updated to:', 'employment_status'); // Añade este log
+      setCurrentStep('employment_status');
     }
   } catch (error) {
-    console.error('Error getting employment status:', error);
-  } finally {
-    setLoading(false);
-  }
-};
-// Función para manejar la respuesta del usuario sobre el estado de empleo
-const handleEmploymentStatusResponse = async (status) => {
-  try {
-    setLoading(true);
-
-    const response = await fetch('http://localhost:8080/api/specify-employment-status', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        status: status,
-        language: userData.detectedLanguage,
-        companies: phase2Data.companies
-      })
-    });
-
-    const data = await response.json();
-
-    if (data.success) {
-      addMessage({
-        text: data.message,
-        type: 'bot'
-      });
-      
-      // En lugar de ir a 'next_phase', llamamos a handleExcludeCompanies
-      await handleExcludeCompanies();
-    }
-  } catch (error) {
-    console.error('Error processing employment status:', error);
+    console.error('Error:', error);
     addMessage({
       text: 'Error processing your request. Please try again.',
       type: 'bot',
@@ -471,7 +424,51 @@ const handleEmploymentStatusResponse = async (status) => {
   }
 };
 
+// Segunda función - procesa la respuesta y actualiza el estado
+const handleEmploymentStatusResponse = async (status) => {
+  try {
+    setLoading(true);
 
+    const response = await fetch('http://localhost:8080/api/specify-employment-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: status,
+        language: userData.detectedLanguage
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      // Actualizar el estado
+      setPhase3Data(prev => ({
+        ...prev,
+        employmentStatus: data.employment_status
+      }));
+      
+      // Opcional: si quieres mostrar el mensaje de confirmación
+      addMessage({
+        text: data.message,
+        type: 'bot'
+      });
+      
+      // Continuar con el siguiente paso
+      setTimeout(() => {
+        handleExcludeCompanies();
+      }, 1000);
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    addMessage({
+      text: 'Error processing your request. Please try again.',
+      type: 'bot',
+      isError: true
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
 
 ///////////////////////////EXCLUDE COMPANIES/////////////////////////////////77
@@ -511,9 +508,9 @@ const handleExcludeCompanies = async () => {
     });
   }
 };
-
 const handleExcludeCompaniesResponse = async (answer) => {
-  console.log('Iniciando handleExcludeCompaniesResponse con respuesta:', answer);
+  console.log('🔍 Estado actual antes de excluir compañías:', phase3Data);
+  console.log('📥 Compañías a excluir:', answer);
   try {
     const requestBody = {
       answer: answer,
@@ -532,6 +529,11 @@ const handleExcludeCompaniesResponse = async (answer) => {
     console.log('Respuesta recibida de exclude-companies response:', data);
 
     if (data.success) {
+      console.log('✅ Estado después de excluir compañías:', {
+        excludedCompanies: data.excluded_companies,
+        phase3DataActual: phase3Data
+      });
+      
       addMessage({
         text: data.message,
         type: 'bot'
@@ -603,6 +605,8 @@ const handleClientPerspective = async () => {
 };
 
 const handleClientPerspectiveResponse = async (answer) => {
+  console.log('🔍 Estado actual antes de client perspective:', phase3Data);
+  console.log('📥 Perspectiva del cliente recibida:', answer);
   console.log('Iniciando handleClientPerspectiveResponse con respuesta:', answer);
   try {
     const requestBody = {
@@ -624,6 +628,11 @@ const handleClientPerspectiveResponse = async (answer) => {
       addMessage({
         text: data.message,
         type: 'bot'
+      });
+      
+      console.log('✅ Estado después de client perspective:', {
+        clientPerspective: data.client_perspective,
+        phase3DataActual: phase3Data
       });
       
       console.log('Actualizando phase3Data con client_perspective:', data.client_perspective);
@@ -651,7 +660,6 @@ const handleClientPerspectiveResponse = async (answer) => {
     });
   }
 };
-
 ////////////////////////////////////////////////////Supply Chain
 
 
@@ -696,6 +704,8 @@ const handleSupplyChainExperience = async () => {
 
 // 2. Función para manejar la respuesta del usuario
 const handleSupplyChainExperienceResponse = async (answer) => {
+  console.log('🔍 Estado actual antes de supply chain:', phase3Data);
+  console.log('📥 Respuesta supply chain:', answer);
   console.log('Iniciando handleSupplyChainExperienceResponse con respuesta:', answer);
   try {
     const requestBody = {
@@ -714,6 +724,11 @@ const handleSupplyChainExperienceResponse = async (answer) => {
     console.log('Respuesta recibida del servidor:', data);
 
     if (data.success) {
+      console.log('✅ Estado después de supply chain:', {
+        supplyChainRequired: data.supply_chain_required,
+        phase3DataActual: phase3Data
+      });
+
       addMessage({
         text: data.message,
         type: 'bot'
@@ -741,7 +756,6 @@ const handleSupplyChainExperienceResponse = async (answer) => {
     });
   }
 };
-
 
 
 
@@ -826,6 +840,7 @@ const handleEvaluationQuestionsResponse = async (answer) => {
       } else if (data.evaluation_required === false) {
         console.log('Usuario no requiere evaluación, procediendo al siguiente paso');
         // Aquí puedes agregar la lógica para el siguiente paso cuando no se requiere evaluación
+        await searchIndustryExperts();
       }
     } else {
       throw new Error(data.message || 'Error en la respuesta de evaluation questions');
@@ -898,6 +913,11 @@ const handleEvaluationQuestionsSections = async (sections = ['proveedores', 'emp
   }
 };
 
+
+
+
+
+
 const handleEvaluationQuestionsSectionsResponse = async (answer) => {
   console.log('Iniciando handleEvaluationQuestionsSectionsResponse con respuesta:', answer);
   try {
@@ -948,6 +968,9 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
         }));
 
         console.log('Todas las secciones completadas');
+        
+        // Iniciar la búsqueda de expertos cuando se completan todas las secciones
+        await searchIndustryExperts();
       } else {
         // Actualizar el estado para la siguiente sección
         setPhase3Data(prev => ({
@@ -977,8 +1000,152 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
 
 //////////////////////////////////////////////busqueda de experots
 
+// Función para buscar expertos
+const searchIndustryExperts = async () => {
+  try {
+    const requestBody = {
+      sector: phase2Data.sector,
+      processed_region: phase2Data.processed_region,
+      language: phase2Data.language,
+      companies: phase2Data.companies,
+      interested_in_companies: phase2Data.interested_in_companies,
+      employmentStatus: phase3Data.employmentStatus,
+      companiesForExpertSearch: phase3Data.companiesForExpertSearch,
+      excludedCompanies: phase3Data.excludedCompanies,
+      clientPerspective: phase3Data.clientPerspective,
+      supplyChainRequired: phase3Data.supplyChainRequired
+    };
+
+    console.log('🔍 Búsqueda de expertos - Datos enviados:', requestBody);
+
+    const response = await fetch('http://localhost:8080/api/industry-experts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody)
+    });
+
+    const data = await response.json();
+    console.log('✅ Búsqueda de expertos - Respuesta recibida:', data);
+
+    if (data.success) {
+      const { experts_by_category, total_experts } = data;
+      
+      // Mensaje inicial con el total de expertos
+      const expertsMessage = `Se encontraron ${total_experts} experto${total_experts !== 1 ? 's' : ''} que coinciden con tus criterios.`;
+      addMessage({
+        text: expertsMessage,
+        type: 'bot'
+      });
+
+      // Si hay expertos, mostrar los detalles
+      if (total_experts > 0) {
+        let detailedMessage = '';
+
+        // Función helper para formatear la experiencia del experto
+        const formatExpertInfo = (expert) => {
+          return `- ${expert.name} (${expert.role})
+             • Experiencia: ${expert.experience}
+             • Empresas: ${expert.companies_experience.join(', ')}
+             • Áreas de expertise: ${expert.expertise.join(', ')}
+             • Regiones: ${expert.region_experience.join(', ')}`;
+        };
+
+        // Procesar cada categoría
+        const categories = ['companies', 'clients', 'suppliers'];
+        categories.forEach(category => {
+          const categoryExperts = experts_by_category[category].experts;
+          if (categoryExperts && categoryExperts.length > 0) {
+            detailedMessage += `\n\n${experts_by_category[category].title}:\n`;
+            categoryExperts.forEach(expert => {
+              detailedMessage += `\n${formatExpertInfo(expert)}`;
+            });
+          }
+        });
+
+        if (detailedMessage) {
+          addMessage({
+            text: detailedMessage.trim(),
+            type: 'bot'
+          });
+        }
+
+        // Actualizar el estado con los expertos encontrados
+        setPhase3Data(prev => ({
+          ...prev,
+          selectedExperts: {
+            clients: experts_by_category.clients.experts,
+            companies: experts_by_category.companies.experts,
+            suppliers: experts_by_category.suppliers.experts
+          },
+          filtersApplied: data.filters_applied
+        }));
+      }
+    } else {
+      throw new Error('No se pudieron encontrar expertos que coincidan con los criterios especificados');
+    }
+  } catch (error) {
+    console.error('❌ Error en búsqueda de expertos:', error);
+    addMessage({
+      text: 'Error al buscar expertos. Por favor, intenta nuevamente.',
+      type: 'bot',
+      isError: true
+    });
+  }
+};
 
 ///////////////////////////////////////////////////////////////////7
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//////////////////////////////////////////////////////////////////////77
 
 const handleSendMessage = async (data) => {
   try {
@@ -1064,6 +1231,9 @@ const handleSendMessage = async (data) => {
     } else if (currentPhase === 3) {
       console.log('Processing Phase 3, current step:', currentStep);
       switch (currentStep) {
+        case 'expert_search':
+          await searchIndustryExperts();
+          break;
         default:
           console.log('Phase 3 - Hit default case with step:', currentStep);
           break;
@@ -1081,7 +1251,6 @@ const handleSendMessage = async (data) => {
     console.log('Finished handleSendMessage, current step is:', currentStep);
   }
 };
-
 
 // Actualizar isInputDisabled para incluir los nuevos pasos
 const isInputDisabled = () => {
