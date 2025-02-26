@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react' // Añadido useEffect
 import './Chat.css'
 import ChatInput from '../ChatInput/ChatInput'
 import ChatMessage from '../ChatMessage/ChatMessage'
@@ -13,7 +13,6 @@ function Chat() {
   const [loading, setLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState('email')
   const [currentPhase, setCurrentPhase] = useState(1)
-  
   
   const [userData, setUserData] = useState({
     email: '',
@@ -30,7 +29,6 @@ function Chat() {
     interested_in_companies: false
   })
 
-
   const [phase3Data, setPhase3Data] = useState({
     employmentStatus: '',
     excludedCompanies: [],
@@ -43,15 +41,33 @@ function Chat() {
       completed: [],
       questions: {}
     },
-    // Nuevas propiedades para manejar expertos
     selectedExperts: {
       companies: [],
       clients: [],
       suppliers: []
     },
-    finalSelectedExperts: [],  // Para almacenar los expertos finalmente seleccionados
-    filtersApplied: {}        // Para almacenar los filtros aplicados en la búsqueda
+    finalSelectedExperts: [],
+    filtersApplied: {}
   });
+
+  // Nuevo useEffect para sincronizar el idioma en todos los estados
+  useEffect(() => {
+    // Actualizar phase2Data
+    setPhase2Data(prev => ({
+      ...prev,
+      language: userData.detectedLanguage
+    }));
+
+    // Actualizar phase3Data
+    setPhase3Data(prev => ({
+      ...prev,
+      filtersApplied: {
+        ...prev.filtersApplied,
+        detected_language: userData.detectedLanguage
+      }
+    }));
+  }, [userData.detectedLanguage]);
+
 
 
 
@@ -1027,28 +1043,18 @@ const searchIndustryExperts = async () => {
 
     if (data.success) {
       const { experts_by_category, total_experts, detected_language } = data;
-      
-      // Mensaje inicial con el total de expertos
-      const expertsMessage = `Se encontraron ${total_experts} experto${total_experts !== 1 ? 's' : ''} que coinciden con tus criterios.`;
-      addMessage({
-        text: expertsMessage,
-        type: 'bot'
-      });
 
-      // Si hay expertos, mostrar los detalles
       if (total_experts > 0) {
         let detailedMessage = '';
 
-        // Función helper para formatear la experiencia del experto
         const formatExpertInfo = (expert) => {
           return `- ${expert.name} (${expert.role})
-             • Experiencia: ${expert.experience}
-             • Empresas: ${expert.companies_experience.join(', ')}
-             • Áreas de expertise: ${expert.expertise.join(', ')}
-             • Regiones: ${expert.region_experience.join(', ')}`;
+             • ${expert.experience}
+             • ${expert.companies_experience.join(', ')}
+             • ${expert.expertise.join(', ')}
+             • ${expert.region_experience.join(', ')}`;
         };
 
-        // Procesar cada categoría
         const categories = ['companies', 'clients', 'suppliers'];
         categories.forEach(category => {
           const categoryExperts = experts_by_category[category].experts;
@@ -1066,19 +1072,16 @@ const searchIndustryExperts = async () => {
             type: 'bot'
           });
           
-          // Agregar el mensaje de selección que viene del backend
           setTimeout(() => {
             addMessage({
               text: data.selection_message,
               type: 'bot'
             });
-            // Actualizar el paso actual a expert_selection
             setCurrentPhase(3);
             setCurrentStep('expert_selection');
           }, 1000);
         }
 
-        // Actualizar el estado con los expertos encontrados y el idioma detectado
         setPhase3Data(prev => ({
           ...prev,
           selectedExperts: {
@@ -1090,7 +1093,6 @@ const searchIndustryExperts = async () => {
             ...data.filters_applied,
             detected_language: detected_language
           },
-          // Guardar la estructura completa para usar en selección de expertos
           experts_by_category: {
             clients: {
               experts: experts_by_category.clients.experts
@@ -1119,6 +1121,8 @@ const searchIndustryExperts = async () => {
 };
 ///////////////////////////////////////////////////////////////////7
 
+
+
 const handleExpertSelection = async (expertNames) => {
   try {
     const selectedExperts = expertNames
@@ -1126,31 +1130,21 @@ const handleExpertSelection = async (expertNames) => {
       .map(name => name.trim())
       .filter(name => name.length > 0);
 
-    if (selectedExperts.length === 0) {
-      addMessage({
-        text: 'Por favor, ingrese al menos un nombre de experto válido.',
-        type: 'bot',
-        isError: true
-      });
-      return;
-    }
-
-    // Verificar que tenemos los datos necesarios
     if (!phase3Data?.selectedExperts) {
       throw new Error('No hay datos de expertos disponibles');
     }
 
-    // Construir el objeto con la estructura correcta
     const requestBody = {
-      selected_experts: selectedExperts, // Cambio aquí: enviamos el array de nombres
-      all_experts_data: {               // Cambio aquí: renombramos a all_experts_data
-        detected_language: phase3Data.filtersApplied?.detected_language,
+      selected_experts: selectedExperts,
+      all_experts_data: {
+        detected_language: phase3Data.filtersApplied?.detected_language || 'en',
         experts_by_category: {
           clients: { experts: phase3Data.selectedExperts.clients || [] },
           companies: { experts: phase3Data.selectedExperts.companies || [] },
           suppliers: { experts: phase3Data.selectedExperts.suppliers || [] }
         }
-      }
+      },
+      evaluation_questions: phase3Data?.evaluationSections?.questions || {}
     };
 
     console.log('Datos enviados para selección:', requestBody);
@@ -1164,29 +1158,46 @@ const handleExpertSelection = async (expertNames) => {
     const data = await response.json();
 
     if (data.success) {
-      // Primer mensaje de confirmación
-      addMessage({
-        text: `✅ Has seleccionado a ${selectedExperts.join(', ')}.`, // Mensaje más específico
-        type: 'bot'
-      });
-
-      // Si hay detalles del experto, mostrarlos
       if (data.expert_details) {
         setTimeout(() => {
           const expert = data.expert_details;
-          const detailsMessage = `📋 Detalles del experto:\n\n` +
-            `• Nombre: ${expert.name}\n` +
-            `• Rol: ${expert.role}\n` +
-            `• Experiencia: ${expert.experience}\n` +
-            `• Empresas: ${expert.companies_experience.join(', ')}\n` +
-            `• Áreas de expertise: ${expert.expertise.join(', ')}\n` +
-            `• Regiones: ${expert.region_experience.join(', ')}`;
+          const detailsMessage = `📋\n\n` +
+            `${expert.name}\n` +
+            `• ${expert.role}\n` +
+            `• ${expert.experience}\n` +
+            `• ${expert.companies_experience.join(', ')}\n` +
+            `• ${expert.expertise.join(', ')}\n` +
+            `• ${expert.region_experience.join(', ')}`;
 
           addMessage({
             text: detailsMessage,
             type: 'bot'
           });
         }, 1000);
+      }
+
+      if (data.evaluation_questions && Object.keys(data.evaluation_questions).length > 0) {
+        setTimeout(() => {
+          let questionsMessage = `📝 Preguntas sugeridas para la evaluación:\n\n`;
+          
+          Object.entries(data.evaluation_questions).forEach(([section, questions]) => {
+            questionsMessage += `${section.toUpperCase()}:\n${questions}\n\n`;
+          });
+
+          addMessage({
+            text: questionsMessage,
+            type: 'bot'
+          });
+        }, 2000);
+      }
+
+      if (data.final_message) {
+        setTimeout(() => {
+          addMessage({
+            text: data.final_message,
+            type: 'bot'
+          });
+        }, 3000);
       }
 
     } else {
@@ -1196,27 +1207,12 @@ const handleExpertSelection = async (expertNames) => {
   } catch (error) {
     console.error('Error en handleExpertSelection:', error);
     addMessage({
-      text: error.message || 'Error al procesar la selección de expertos. Por favor, intenta nuevamente.',
+      text: error.message,
       type: 'bot',
       isError: true
     });
   }
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
