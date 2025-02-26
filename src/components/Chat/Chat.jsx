@@ -42,14 +42,16 @@ function Chat() {
       remaining: [],
       completed: [],
       questions: {}
-    }
+    },
+    // Nuevas propiedades para manejar expertos
+    selectedExperts: {
+      companies: [],
+      clients: [],
+      suppliers: []
+    },
+    finalSelectedExperts: [],  // Para almacenar los expertos finalmente seleccionados
+    filtersApplied: {}        // Para almacenar los filtros aplicados en la búsqueda
   });
-  
-
-
-
-
-
 
 
 
@@ -997,10 +999,6 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
 };
 
 
-
-//////////////////////////////////////////////busqueda de experots
-
-// Función para buscar expertos
 const searchIndustryExperts = async () => {
   try {
     const requestBody = {
@@ -1028,7 +1026,7 @@ const searchIndustryExperts = async () => {
     console.log('✅ Búsqueda de expertos - Respuesta recibida:', data);
 
     if (data.success) {
-      const { experts_by_category, total_experts } = data;
+      const { experts_by_category, total_experts, detected_language } = data;
       
       // Mensaje inicial con el total de expertos
       const expertsMessage = `Se encontraron ${total_experts} experto${total_experts !== 1 ? 's' : ''} que coinciden con tus criterios.`;
@@ -1067,9 +1065,20 @@ const searchIndustryExperts = async () => {
             text: detailedMessage.trim(),
             type: 'bot'
           });
+          
+          // Agregar el mensaje de selección que viene del backend
+          setTimeout(() => {
+            addMessage({
+              text: data.selection_message,
+              type: 'bot'
+            });
+            // Actualizar el paso actual a expert_selection
+            setCurrentPhase(3);
+            setCurrentStep('expert_selection');
+          }, 1000);
         }
 
-        // Actualizar el estado con los expertos encontrados
+        // Actualizar el estado con los expertos encontrados y el idioma detectado
         setPhase3Data(prev => ({
           ...prev,
           selectedExperts: {
@@ -1077,7 +1086,23 @@ const searchIndustryExperts = async () => {
             companies: experts_by_category.companies.experts,
             suppliers: experts_by_category.suppliers.experts
           },
-          filtersApplied: data.filters_applied
+          filtersApplied: {
+            ...data.filters_applied,
+            detected_language: detected_language
+          },
+          // Guardar la estructura completa para usar en selección de expertos
+          experts_by_category: {
+            clients: {
+              experts: experts_by_category.clients.experts
+            },
+            companies: {
+              experts: experts_by_category.companies.experts
+            },
+            suppliers: {
+              experts: experts_by_category.suppliers.experts
+            }
+          },
+          detected_language: detected_language
         }));
       }
     } else {
@@ -1092,16 +1117,91 @@ const searchIndustryExperts = async () => {
     });
   }
 };
-
 ///////////////////////////////////////////////////////////////////7
 
+const handleExpertSelection = async (expertNames) => {
+  try {
+    const selectedExperts = expertNames
+      .split(',')
+      .map(name => name.trim())
+      .filter(name => name.length > 0);
 
+    if (selectedExperts.length === 0) {
+      addMessage({
+        text: 'Por favor, ingrese al menos un nombre de experto válido.',
+        type: 'bot',
+        isError: true
+      });
+      return;
+    }
 
+    // Verificar que tenemos los datos necesarios
+    if (!phase3Data?.selectedExperts) {
+      throw new Error('No hay datos de expertos disponibles');
+    }
 
+    // Construir el objeto con la estructura correcta
+    const requestBody = {
+      selected_experts: selectedExperts, // Cambio aquí: enviamos el array de nombres
+      all_experts_data: {               // Cambio aquí: renombramos a all_experts_data
+        detected_language: phase3Data.filtersApplied?.detected_language,
+        experts_by_category: {
+          clients: { experts: phase3Data.selectedExperts.clients || [] },
+          companies: { experts: phase3Data.selectedExperts.companies || [] },
+          suppliers: { experts: phase3Data.selectedExperts.suppliers || [] }
+        }
+      }
+    };
 
+    console.log('Datos enviados para selección:', requestBody);
 
+    const response = await fetch('http://localhost:8080/api/select-experts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody)
+    });
 
+    const data = await response.json();
 
+    if (data.success) {
+      // Primer mensaje de confirmación
+      addMessage({
+        text: `✅ Has seleccionado a ${selectedExperts.join(', ')}.`, // Mensaje más específico
+        type: 'bot'
+      });
+
+      // Si hay detalles del experto, mostrarlos
+      if (data.expert_details) {
+        setTimeout(() => {
+          const expert = data.expert_details;
+          const detailsMessage = `📋 Detalles del experto:\n\n` +
+            `• Nombre: ${expert.name}\n` +
+            `• Rol: ${expert.role}\n` +
+            `• Experiencia: ${expert.experience}\n` +
+            `• Empresas: ${expert.companies_experience.join(', ')}\n` +
+            `• Áreas de expertise: ${expert.expertise.join(', ')}\n` +
+            `• Regiones: ${expert.region_experience.join(', ')}`;
+
+          addMessage({
+            text: detailsMessage,
+            type: 'bot'
+          });
+        }, 1000);
+      }
+
+    } else {
+      throw new Error(data.message || 'Error al seleccionar expertos');
+    }
+
+  } catch (error) {
+    console.error('Error en handleExpertSelection:', error);
+    addMessage({
+      text: error.message || 'Error al procesar la selección de expertos. Por favor, intenta nuevamente.',
+      type: 'bot',
+      isError: true
+    });
+  }
+};
 
 
 
@@ -1234,6 +1334,9 @@ const handleSendMessage = async (data) => {
         case 'expert_search':
           await searchIndustryExperts();
           break;
+        case 'expert_selection':  // Nuevo caso añadido
+          await handleExpertSelection(userMessage);
+          break;
         default:
           console.log('Phase 3 - Hit default case with step:', currentStep);
           break;
@@ -1251,6 +1354,8 @@ const handleSendMessage = async (data) => {
     console.log('Finished handleSendMessage, current step is:', currentStep);
   }
 };
+
+
 
 // Actualizar isInputDisabled para incluir los nuevos pasos
 const isInputDisabled = () => {
