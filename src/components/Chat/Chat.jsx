@@ -339,7 +339,7 @@ function Chat() {
         const baseMessage = data.message.split('\n\n')[0];
         
         // Construir el mensaje final en el orden correcto
-        const fullMessage = `${baseMessage}\n\n${companiesList}\n\n¿Estás de acuerdo con esta lista?`;
+        const fullMessage = `${baseMessage}\n\n${companiesList}\n\n`;
   
         addMessage({
           text: fullMessage,
