@@ -454,8 +454,6 @@ function Chat() {
 
 
 
-// Primera función - solo muestra la pregunta
-// Primera función - solo muestra la pregunta
 const handleEmploymentStatus = async () => {
   console.log('🟦 [handleEmploymentStatus] Iniciando');
   try {
