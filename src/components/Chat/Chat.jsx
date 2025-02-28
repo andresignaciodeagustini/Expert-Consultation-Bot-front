@@ -386,10 +386,56 @@ function Chat() {
 
 
 
-
-
-
-
+  const handleCompanyAgreement = async (userMessage) => {
+    try {
+      setLoading(true);
+      
+      const response = await fetch('http://localhost:8080/api/process-companies-agreement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: userMessage,
+          language: userData.detectedLanguage
+        })
+      });
+  
+      const data = await response.json();
+  
+      if (data.success) {
+        addMessage({
+          text: data.message,
+          type: 'bot'
+        });
+  
+        if (data.agreed) {
+          console.log('User agreed, proceeding to employment status');
+          setTimeout(() => {
+            handleEmploymentStatus();
+          }, 1000);
+        } else {
+          console.log('User disagreed, generating new list');
+          setTimeout(() => {
+            handleCompanySuggestions();
+          }, 1000);
+        }
+      } else {
+        addMessage({
+          text: data.message || 'Error processing your response. Please try again.',
+          type: 'bot',
+          isError: true
+        });
+      }
+    } catch (error) {
+      console.error('Error processing company agreement:', error);
+      addMessage({
+        text: 'Error processing your response. Please try again.',
+        type: 'bot',
+        isError: true
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
 
@@ -409,19 +455,25 @@ function Chat() {
 
 
 // Primera función - solo muestra la pregunta
+// Primera función - solo muestra la pregunta
 const handleEmploymentStatus = async () => {
+  console.log('🟦 [handleEmploymentStatus] Iniciando');
   try {
     setLoading(true);
+    
+    const requestBody = {
+      language: userData.detectedLanguage
+    };
+    console.log('🟦 [handleEmploymentStatus] Request:', requestBody);
     
     const response = await fetch('http://localhost:8080/api/specify-employment-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        language: userData.detectedLanguage
-      })
+      body: JSON.stringify(requestBody)
     });
 
     const data = await response.json();
+    console.log('🟦 [handleEmploymentStatus] Respuesta:', data);
 
     if (data.success) {
       addMessage({
@@ -429,9 +481,10 @@ const handleEmploymentStatus = async () => {
         type: 'bot'
       });
       setCurrentStep('employment_status');
+      console.log('🟦 [handleEmploymentStatus] Step actualizado a: employment_status');
     }
   } catch (error) {
-    console.error('Error:', error);
+    console.error('🔴 [handleEmploymentStatus] Error:', error);
     addMessage({
       text: 'Error processing your request. Please try again.',
       type: 'bot',
@@ -439,45 +492,47 @@ const handleEmploymentStatus = async () => {
     });
   } finally {
     setLoading(false);
+    console.log('🟦 [handleEmploymentStatus] Finalizado');
   }
 };
 
-// Segunda función - procesa la respuesta y actualiza el estado
 const handleEmploymentStatusResponse = async (status) => {
+  console.log('🟨 [handleEmploymentStatusResponse] Iniciando con status:', status);
   try {
     setLoading(true);
+
+    const requestBody = {
+      status: status,
+      language: userData.detectedLanguage
+    };
+    console.log('🟨 [handleEmploymentStatusResponse] Request:', requestBody);
 
     const response = await fetch('http://localhost:8080/api/specify-employment-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        status: status,
-        language: userData.detectedLanguage
-      })
+      body: JSON.stringify(requestBody)
     });
 
     const data = await response.json();
+    console.log('🟨 [handleEmploymentStatusResponse] Respuesta:', data);
 
     if (data.success) {
-      // Actualizar el estado
+      console.log('🟨 [handleEmploymentStatusResponse] Actualizando phase3Data con:', data.employment_status);
       setPhase3Data(prev => ({
         ...prev,
         employmentStatus: data.employment_status
       }));
       
-      // Opcional: si quieres mostrar el mensaje de confirmación
       addMessage({
         text: data.message,
         type: 'bot'
       });
       
-      // Continuar con el siguiente paso
-      setTimeout(() => {
-        handleExcludeCompanies();
-      }, 1000);
+      console.log('🟨 [handleEmploymentStatusResponse] Iniciando timeout para handleExcludeCompanies');
+      setTimeout(handleExcludeCompanies, 1000);
     }
   } catch (error) {
-    console.error('Error:', error);
+    console.error('🔴 [handleEmploymentStatusResponse] Error:', error);
     addMessage({
       text: 'Error processing your request. Please try again.',
       type: 'bot',
@@ -485,20 +540,17 @@ const handleEmploymentStatusResponse = async (status) => {
     });
   } finally {
     setLoading(false);
+    console.log('🟨 [handleEmploymentStatusResponse] Finalizado');
   }
 };
 
-
-///////////////////////////EXCLUDE COMPANIES/////////////////////////////////77
-
 const handleExcludeCompanies = async () => {
-  console.log('Iniciando handleExcludeCompanies');
+  console.log('🟩 [handleExcludeCompanies] Iniciando');
   try {
     const requestBody = {
-      answer: '',
       language: userData.detectedLanguage
     };
-    console.log('Enviando solicitud a exclude-companies:', requestBody);
+    console.log('🟩 [handleExcludeCompanies] Request:', requestBody);
 
     const response = await fetch('http://localhost:8080/api/exclude-companies', {
       method: 'POST',
@@ -507,25 +559,30 @@ const handleExcludeCompanies = async () => {
     });
 
     const data = await response.json();
-    console.log('Respuesta recibida de exclude-companies:', data);
+    console.log('🟩 [handleExcludeCompanies] Respuesta:', data);
 
     if (data.success) {
       addMessage({
         text: data.message,
         type: 'bot'
       });
-      console.log('Actualizando currentStep a exclude_companies');
       setCurrentStep('exclude_companies');
+      console.log('🟩 [handleExcludeCompanies] Step actualizado a: exclude_companies');
     }
   } catch (error) {
-    console.error('Error en handleExcludeCompanies:', error);
+    console.error('🔴 [handleExcludeCompanies] Error:', error);
     addMessage({
       text: 'Error processing your request. Please try again.',
       type: 'bot',
       isError: true
     });
+  } finally {
+    console.log('🟩 [handleExcludeCompanies] Finalizado');
   }
 };
+
+
+
 const handleExcludeCompaniesResponse = async (answer) => {
   console.log('🔍 Estado actual antes de excluir compañías:', phase3Data);
   console.log('📥 Compañías a excluir:', answer);
@@ -1242,7 +1299,6 @@ const handleExpertSelection = async (expertNames) => {
 
 
 //////////////////////////////////////////////////////////////////////77
-
 const handleSendMessage = async (data) => {
   try {
     console.log('Starting handleSendMessage with:', {
@@ -1307,14 +1363,7 @@ const handleSendMessage = async (data) => {
           break;
         case 'next_step':
           console.log('Processing next_step response:', userMessage);
-          if (userMessage.toLowerCase() === 'si' || userMessage.toLowerCase() === 'yes') {
-            console.log('User agreed, calling handleEmploymentStatus');
-            await handleEmploymentStatus();
-          } else {
-            console.log('User disagreed, generating new list');
-            await handleCompanySuggestions();
-            setCurrentStep('next_step');
-          }
+          await handleCompanyAgreement(userMessage);
           break;
         case 'employment_status':
           console.log('Processing employment_status response');
@@ -1330,7 +1379,7 @@ const handleSendMessage = async (data) => {
         case 'expert_search':
           await searchIndustryExperts();
           break;
-        case 'expert_selection':  // Nuevo caso añadido
+        case 'expert_selection':
           await handleExpertSelection(userMessage);
           break;
         default:
@@ -1350,7 +1399,6 @@ const handleSendMessage = async (data) => {
     console.log('Finished handleSendMessage, current step is:', currentStep);
   }
 };
-
 
 
 // Actualizar isInputDisabled para incluir los nuevos pasos
