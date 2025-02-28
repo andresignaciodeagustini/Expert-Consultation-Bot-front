@@ -385,7 +385,6 @@ function Chat() {
   };
 
 
-
   const handleCompanyAgreement = async (userMessage) => {
     try {
       setLoading(true);
@@ -407,13 +406,16 @@ function Chat() {
           type: 'bot'
         });
   
-        if (data.agreed) {
+        // Corregido: verificar la intención correctamente
+        if (data.agreed.intention.toLowerCase() === 'yes') {
           console.log('User agreed, proceeding to employment status');
+          setCurrentStep('employment_status'); // Agregado para mantener el estado actualizado
           setTimeout(() => {
             handleEmploymentStatus();
           }, 1000);
         } else {
           console.log('User disagreed, generating new list');
+          setCurrentStep('companies'); // Agregado para volver al paso de compañías
           setTimeout(() => {
             handleCompanySuggestions();
           }, 1000);
@@ -436,8 +438,6 @@ function Chat() {
       setLoading(false);
     }
   };
-
-
 
 
 
