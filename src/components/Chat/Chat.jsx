@@ -590,7 +590,7 @@ const handleExcludeCompaniesResponse = async (answer) => {
       language: userData.detectedLanguage,
       excluded_companies: answer.toLowerCase() === 'no' ? [] : answer.split(',').map(company => company.trim())
     };
-    console.log('Enviando solicitud de respuesta a exclude-companies:', requestBody);
+    console.log('📤 Enviando solicitud a exclude-companies:', requestBody);
 
     const response = await fetch('http://localhost:8080/api/exclude-companies', {
       method: 'POST',
@@ -598,35 +598,38 @@ const handleExcludeCompaniesResponse = async (answer) => {
       body: JSON.stringify(requestBody)
     });
 
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
     const data = await response.json();
-    console.log('Respuesta recibida de exclude-companies response:', data);
+    console.log('📥 Respuesta recibida de exclude-companies:', data);
 
     if (data.success) {
-      console.log('✅ Estado después de excluir compañías:', {
-        excludedCompanies: data.excluded_companies,
-        phase3DataActual: phase3Data
+      // Actualizar estado de manera síncrona
+      await new Promise(resolve => {
+        setPhase3Data(prev => {
+          const newState = {
+            ...prev,
+            excludedCompanies: data.excluded_companies || []
+          };
+          console.log('✅ Nuevo estado de phase3Data:', newState);
+          resolve();
+          return newState;
+        });
       });
-      
+
       addMessage({
         text: data.message,
         type: 'bot'
       });
-      
-      console.log('Actualizando phase3Data con excluded_companies:', data.excluded_companies);
-      setPhase3Data(prev => {
-        const newState = {
-          ...prev,
-          excludedCompanies: data.excluded_companies || []
-        };
-        console.log('Nuevo estado de phase3Data:', newState);
-        return newState;
-      });
 
-      console.log('Llamando a handleClientPerspective');
+      // Esperar un momento antes de continuar
+      await new Promise(resolve => setTimeout(resolve, 1000));
       await handleClientPerspective();
     }
   } catch (error) {
-    console.error('Error en handleExcludeCompaniesResponse:', error);
+    console.error('❌ Error en handleExcludeCompaniesResponse:', error);
     addMessage({
       text: 'Error processing your request. Please try again.',
       type: 'bot',
@@ -634,21 +637,20 @@ const handleExcludeCompaniesResponse = async (answer) => {
     });
   }
 };
-
 
 
 
 
 /////////////////////////////////////CLIENT PERSPECTIVE
-
 const handleClientPerspective = async () => {
-  console.log('Iniciando handleClientPerspective');
+  console.log('🚀 Iniciando handleClientPerspective');
   try {
     const requestBody = {
       answer: '',
-      language: userData.detectedLanguage
+      language: userData.detectedLanguage,
+      phase3_data: phase3Data // Incluir datos actuales
     };
-    console.log('Enviando solicitud a client-perspective:', requestBody);
+    console.log('📤 Enviando solicitud a client-perspective:', requestBody);
 
     const response = await fetch('http://localhost:8080/api/client-perspective', {
       method: 'POST',
@@ -656,19 +658,22 @@ const handleClientPerspective = async () => {
       body: JSON.stringify(requestBody)
     });
 
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
     const data = await response.json();
-    console.log('Respuesta recibida de client-perspective:', data);
+    console.log('📥 Respuesta recibida de client-perspective:', data);
 
     if (data.success) {
       addMessage({
         text: data.message,
         type: 'bot'
       });
-      console.log('Actualizando currentStep a client_perspective');
       setCurrentStep('client_perspective');
     }
   } catch (error) {
-    console.error('Error en handleClientPerspective:', error);
+    console.error('❌ Error en handleClientPerspective:', error);
     addMessage({
       text: 'Error processing your request. Please try again.',
       type: 'bot',
@@ -676,17 +681,20 @@ const handleClientPerspective = async () => {
     });
   }
 };
+
+
 
 const handleClientPerspectiveResponse = async (answer) => {
   console.log('🔍 Estado actual antes de client perspective:', phase3Data);
   console.log('📥 Perspectiva del cliente recibida:', answer);
-  console.log('Iniciando handleClientPerspectiveResponse con respuesta:', answer);
+  
   try {
     const requestBody = {
       answer: answer,
-      language: userData.detectedLanguage
+      language: userData.detectedLanguage,
+      phase3_data: phase3Data // Incluir datos actuales
     };
-    console.log('Enviando solicitud de respuesta a client-perspective:', requestBody);
+    console.log('📤 Enviando solicitud a client-perspective:', requestBody);
 
     const response = await fetch('http://localhost:8080/api/client-perspective', {
       method: 'POST',
@@ -694,38 +702,38 @@ const handleClientPerspectiveResponse = async (answer) => {
       body: JSON.stringify(requestBody)
     });
 
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
     const data = await response.json();
-    console.log('Respuesta recibida de client-perspective response:', data);
+    console.log('📥 Respuesta recibida de client-perspective:', data);
 
     if (data.success) {
+      // Actualizar estado de manera síncrona
+      await new Promise(resolve => {
+        setPhase3Data(prev => {
+          const newState = {
+            ...prev,
+            clientPerspective: data.client_perspective || ''
+          };
+          console.log('✅ Nuevo estado de phase3Data:', newState);
+          resolve();
+          return newState;
+        });
+      });
+
       addMessage({
         text: data.message,
         type: 'bot'
       });
-      
-      console.log('✅ Estado después de client perspective:', {
-        clientPerspective: data.client_perspective,
-        phase3DataActual: phase3Data
-      });
-      
-      console.log('Actualizando phase3Data con client_perspective:', data.client_perspective);
-      setPhase3Data(prev => {
-        const newState = {
-          ...prev,
-          clientPerspective: data.client_perspective || ''
-        };
-        console.log('Nuevo estado de phase3Data:', newState);
-        return newState;
-      });
 
-      // En lugar de cambiar a next_phase, llamamos a handleSupplyChainExperience
-      console.log('Llamando a handleSupplyChainExperience');
-      setTimeout(() => {
-        handleSupplyChainExperience();
-      }, 500);
+      // Esperar un momento antes de continuar
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await handleSupplyChainExperience();
     }
   } catch (error) {
-    console.error('Error en handleClientPerspectiveResponse:', error);
+    console.error('❌ Error en handleClientPerspectiveResponse:', error);
     addMessage({
       text: 'Error processing your request. Please try again.',
       type: 'bot',
@@ -733,7 +741,27 @@ const handleClientPerspectiveResponse = async (answer) => {
     });
   }
 };
-////////////////////////////////////////////////////Supply Chain
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
