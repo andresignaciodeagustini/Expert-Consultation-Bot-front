@@ -1,15 +1,10 @@
-import { useState, useEffect } from 'react' // Añadido useEffect
+import { useState, useEffect } from 'react'
 import './Chat.css'
 import ChatInput from '../ChatInput/ChatInput'
 import ChatMessage from '../ChatMessage/ChatMessage'
 
 function Chat() {
-  const [messages, setMessages] = useState([
-    {
-      text: "Welcome! Please enter your email:", 
-      type: 'bot'
-    }
-  ])
+  const [messages, setMessages] = useState([])  // Inicializado vacío
   const [loading, setLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState('email')
   const [currentPhase, setCurrentPhase] = useState(1)
@@ -50,15 +45,15 @@ function Chat() {
     filtersApplied: {}
   });
 
-  // Nuevo useEffect para sincronizar el idioma en todos los estados
+  
+
+  // useEffect para sincronizar el idioma en todos los estados
   useEffect(() => {
-    // Actualizar phase2Data
     setPhase2Data(prev => ({
       ...prev,
       language: userData.detectedLanguage
     }));
 
-    // Actualizar phase3Data
     setPhase3Data(prev => ({
       ...prev,
       filtersApplied: {
@@ -68,12 +63,89 @@ function Chat() {
     }));
   }, [userData.detectedLanguage]);
 
-
-
-
   const addMessage = (message) => {
     setMessages(prev => [...prev, message])
   }
+
+// Nuevo useEffect para el mensaje de bienvenida (reemplaza los dos existentes)
+useEffect(() => {
+  const fetchWelcomeMessage = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:8080/api/welcome-message')
+      const data = await response.json()
+      
+      if (data.success) {
+        if (data.is_english_speaking) {
+          // Para países de habla inglesa
+          setMessages([
+            {
+              text: data.messages.greeting.english,
+              type: 'bot',
+              className: 'chat-message bot'
+            },
+            {
+              text: data.messages.instruction.english,
+              type: 'bot',
+              className: 'chat-message bot'
+            }
+          ]);
+        } else {
+          // Para países no ingleses, mostrar los cuatro mensajes separados
+          setMessages([
+            // Mensaje de bienvenida en inglés
+            {
+              text: data.messages.greeting.english,
+              type: 'bot',
+              className: 'chat-message bot'
+            },
+            // Mensaje de bienvenida traducido
+            {
+              text: data.messages.greeting.translated,
+              type: 'bot',
+              className: 'chat-message bot'
+            },
+            // Instrucciones en inglés
+            {
+              text: data.messages.instruction.english,
+              type: 'bot',
+              className: 'chat-message bot'
+            },
+            // Instrucciones traducidas
+            {
+              text: data.messages.instruction.translated,
+              type: 'bot',
+              className: 'chat-message bot'
+            }
+          ]);
+        }
+        
+        setUserData(prev => ({
+          ...prev,
+          detectedLanguage: data.detected_language,
+          countryCode: data.country_code
+        }))
+      } else {
+        setMessages([{
+          text: "Welcome to Silverlight Research Expert Network! Please enter your email:",
+          type: 'bot',
+          className: 'chat-message bot'
+        }])
+      }
+    } catch (error) {
+      console.error('Error fetching welcome message:', error)
+      setMessages([{
+        text: "Welcome to Silverlight Research Expert Network! Please enter your email:",
+        type: 'bot',
+        className: 'chat-message bot'
+      }])
+    }
+  }
+
+  fetchWelcomeMessage()
+}, [])
+
+
+
 
   const handleEmailCapture = async (email) => {
     try {
@@ -103,6 +175,8 @@ function Chat() {
       })
     }
   }
+
+
 
   const handleNameCapture = async (name) => {
     try {
@@ -221,6 +295,9 @@ function Chat() {
         });
     }
   };
+
+
+
 
   const handleRegionInput = async (region) => {
     try {
@@ -1460,7 +1537,6 @@ const isInputDisabled = () => {
 return (
   <div className="chat-container">
     <div className="chat-header">
-      <h2>Expert Consultation Bot</h2>
       <div className="phase-indicator">
         Phase {currentPhase}
       </div>
@@ -1470,7 +1546,8 @@ return (
       {messages.map((message, index) => (
         <ChatMessage 
           key={index}
-          {...message}
+          text={message.text}
+          type={message.type}
         />
       ))}
 
@@ -1482,15 +1559,7 @@ return (
       disabled={isInputDisabled()}
       currentStep={currentStep}
       currentPhase={currentPhase}
-      placeholder={
-        currentStep === 'sector_selection' 
-          ? "Please type one of the sectors listed above" 
-          : currentStep === 'region'
-          ? "Please specify the region you're interested in"
-          : currentStep === 'companies'
-          ? "Please enter the companies you're interested in, or type 'no'"
-          : "Type your message..."
-      }
+     
     />
   </div>
 );

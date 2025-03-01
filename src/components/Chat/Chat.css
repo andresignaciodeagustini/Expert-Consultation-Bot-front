@@ -70,11 +70,6 @@ body {
   border: 1px solid #e9ecef;
 }
 
-.chat-message.bot:first-of-type {
-  font-weight: 600;
-  color: #2c3e50;
-  font-size: 1.1em;
-}
 
 .chat-message.error {
   background-color: #fff3f3;
