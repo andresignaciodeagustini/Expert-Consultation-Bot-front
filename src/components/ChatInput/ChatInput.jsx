@@ -1,11 +1,10 @@
 import { useState, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { processVoice } from '../../services/api'
 import './ChatInput.css'
 import { FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa'
 import { IoSend } from 'react-icons/io5'
 
-function ChatInput({ onSendMessage, disabled, currentStep, currentRegion }) {
+function ChatInput({ onSendMessage, disabled }) {
   const [message, setMessage] = useState('')
   const [isRecording, setIsRecording] = useState(false)
   const mediaRecorder = useRef(null)
@@ -13,57 +12,84 @@ function ChatInput({ onSendMessage, disabled, currentStep, currentRegion }) {
 
   const handleVoiceRecording = async (start) => {
     if (start) {
+      console.log('🎤 Iniciando grabación...');
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        mediaRecorder.current = new MediaRecorder(stream)
+        mediaRecorder.current = new MediaRecorder(stream, {
+          mimeType: 'audio/webm' // Usar webm que es más compatible
+        });
         audioChunks.current = []
 
         mediaRecorder.current.ondataavailable = (event) => {
+          console.log('📊 Chunk de audio recibido:', event.data.size, 'bytes');
           audioChunks.current.push(event.data)
         }
 
         mediaRecorder.current.onstop = async () => {
-          const audioBlob = new Blob(audioChunks.current, { type: 'audio/wav' })
+          console.log('⏹️ Grabación detenida');
+          const audioBlob = new Blob(audioChunks.current, { 
+            type: 'audio/webm' 
+          });
+          console.log('📦 Tamaño del audio blob:', audioBlob.size, 'bytes');
+          
           try {
-            const response = await processVoice(
-              audioBlob,
-              currentStep,
-              currentStep === 'sector' ? currentRegion : null
-            )
+            console.log('🚀 Preparando FormData para envío...');
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'audio.webm');
 
-            if (response.transcription?.trim()) {
+            console.log('📤 Enviando audio al servidor...');
+            const response = await fetch('http://localhost:8080/api/ai/voice/process', {
+              method: 'POST',
+              body: formData
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('📥 Respuesta completa del servidor:', data);
+
+            if (data.success && data.transcription) {
+              console.log('✅ Transcripción exitosa:', data.transcription);
               onSendMessage({
                 type: 'message',
-                value: response.transcription.trim()
-              })
+                value: data.transcription
+              });
+            } else if (data.error) {
+              console.error('❌ Error del servidor:', data.error);
+              throw new Error(data.error);
             } else {
-              onSendMessage({
-                type: 'error',
-                value: 'I could not understand what you said. Please try again.'
-              })
+              console.error('❌ No hay transcripción en la respuesta:', data);
+              throw new Error('No se pudo obtener la transcripción');
             }
           } catch (error) {
-            console.error('Error processing voice:', error)
+            console.error('🔴 Error procesando audio:', error);
             onSendMessage({
               type: 'error',
-              value: 'Sorry, there was an error processing your voice. Please try again.'
-            })
+              value: 'Error al procesar el audio. Por favor, intenta nuevamente.'
+            });
+          } finally {
+            // Limpiar los recursos
+            mediaRecorder.current.stream.getTracks().forEach(track => track.stop());
+            setIsRecording(false);
           }
         }
 
-        mediaRecorder.current.start()
-        setIsRecording(true)
+        mediaRecorder.current.start();
+        setIsRecording(true);
+        console.log('🎙️ Grabación iniciada');
       } catch (error) {
-        console.error('Error accessing microphone:', error)
+        console.error('🔴 Error accediendo al micrófono:', error);
+        setIsRecording(false);
       }
     } else {
       if (mediaRecorder.current?.state === 'recording') {
-        mediaRecorder.current.stop()
-        mediaRecorder.current.stream.getTracks().forEach(track => track.stop())
-        setIsRecording(false)
+        console.log('⏹️ Deteniendo grabación...');
+        mediaRecorder.current.stop();
       }
     }
-  }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -107,16 +133,12 @@ function ChatInput({ onSendMessage, disabled, currentStep, currentRegion }) {
 
 ChatInput.propTypes = {
   onSendMessage: PropTypes.func,
-  disabled: PropTypes.bool,
-  currentStep: PropTypes.string,
-  currentRegion: PropTypes.string
+  disabled: PropTypes.bool
 }
 
 ChatInput.defaultProps = {
   onSendMessage: () => {},
-  disabled: false,
-  currentStep: 'region',
-  currentRegion: null
+  disabled: false
 }
 
 export default ChatInput
