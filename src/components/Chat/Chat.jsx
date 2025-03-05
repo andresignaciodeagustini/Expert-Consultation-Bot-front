@@ -414,8 +414,6 @@ useEffect(() => {
     }
 }
 
-
-
 const handleCompanySuggestions = async () => {
   try {
     setLoading(true);
@@ -438,37 +436,41 @@ const handleCompanySuggestions = async () => {
     });
 
     const data = await response.json();
-
-    // Agregar log para ver qué está llegando
     console.log('Response data:', data);
 
-    if (data.success && Array.isArray(data.companies)) { // Verificar que companies es un array
+    if (data.success && Array.isArray(data.companies)) {
       setPhase2Data(prev => ({
         ...prev,
         companies: data.companies
       }));
 
-      // Crear la lista de compañías solo si hay compañías
-      const companiesList = data.companies.length > 0 
-        ? data.companies.map((company, index) => 
-            `${index + 1}. ${company}`
-          ).join('\n')
-        : 'No companies found.';
+      const baseMessage = data.message?.split('\n\n')[0] || 'Empresas Recomendadas';
 
-      // Extraer el mensaje base (con validación)
-      const baseMessage = data.message?.split('\n\n')[0] || 'Company suggestions received';
-      
-      // Construir el mensaje final
-      const fullMessage = `${baseMessage}\n\n${companiesList}\n\n`;
+      const companiesHtml = `
+        <div class="suggestions-container">
+          <h3 class="suggestions-title">${baseMessage}</h3>
+          <div class="companies-grid">
+            ${data.companies.map((company, index) => `
+              <div class="company-card">
+                <div class="company-number">${index + 1}</div>
+                <div class="company-name">${company}</div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="suggestions-footer">
+            <p>¿Estás de acuerdo con esta lista?</p>
+          </div>
+        </div>
+      `;
 
       addMessage({
-        text: fullMessage,
-        type: 'bot'
+        text: companiesHtml,
+        type: 'bot',
+        isHtml: true
       });
 
       setCurrentStep('next_step');
     } else {
-      // Mensaje más específico sobre el error
       const errorMessage = data.message || 
         (!Array.isArray(data.companies) ? 'Invalid company data received' : 'Error getting company suggestions');
       
@@ -788,7 +790,6 @@ const handleClientPerspective = async () => {
 };
 
 
-
 const handleClientPerspectiveResponse = async (answer) => {
   console.log('🔍 Estado actual antes de client perspective:', phase3Data);
   console.log('📥 Perspectiva del cliente recibida:', answer);
@@ -822,21 +823,27 @@ const handleClientPerspectiveResponse = async (answer) => {
         type: 'bot'
       });
 
-      // Mensaje con resumen de empresas
+      // Lista de empresas con estilo
       if (data.suggested_companies?.length > 0) {
-        const companiesMessage = `Suggested companies: ${data.suggested_companies.join(', ')}`;
-        addMessage({
-          text: companiesMessage,
-          type: 'bot'
-        });
-      }
+        const companiesHtml = `
+          <div class="suggestions-container client-companies">
+            <h3 class="suggestions-title">Empresas Cliente Sugeridas</h3>
+            <div class="companies-grid">
+              ${data.suggested_companies.map((company, index) => `
+                <div class="company-card">
+                  <div class="company-number">${index + 1}</div>
+                  <div class="company-name">${company}</div>
+                </div>
+              `).join('')}
+            </div>
+            
+          </div>
+        `;
 
-      // Mensaje con resumen de coincidencias
-      if (data.total_matches > 0) {
-        const matchesMessage = `Found ${data.total_matches} experts from ${data.unique_companies} companies.`;
         addMessage({
-          text: matchesMessage,
-          type: 'bot'
+          text: companiesHtml,
+          type: 'bot',
+          isHtml: true
         });
       }
 
@@ -862,9 +869,6 @@ const handleClientPerspectiveResponse = async (answer) => {
     });
   }
 };
-
-
-
 
 
 
@@ -923,7 +927,8 @@ const handleSupplyChainExperience = async () => {
   }
 };
 
-// 2. Función para manejar la respuesta del usuario
+
+
 const handleSupplyChainExperienceResponse = async (answer) => {
   console.log('🔍 Estado actual antes de supply chain:', phase3Data);
   console.log('📥 Respuesta supply chain:', answer);
@@ -931,8 +936,8 @@ const handleSupplyChainExperienceResponse = async (answer) => {
   try {
     const requestBody = {
       answer: answer,
-      sector: phase3Data.sector,    // Incluir sector
-      region: phase3Data.region,    // Incluir región
+      sector: phase3Data.sector,
+      region: phase3Data.region,
       language: userData.detectedLanguage
     };
     console.log('📤 Enviando respuesta a supply-chain-experience:', requestBody);
@@ -957,21 +962,27 @@ const handleSupplyChainExperienceResponse = async (answer) => {
         type: 'bot'
       });
 
-      // Mensaje con resumen de empresas
+      // Lista de empresas con estilo
       if (data.suggested_companies?.length > 0) {
-        const companiesMessage = `Suggested supply chain companies: ${data.suggested_companies.join(', ')}`;
-        addMessage({
-          text: companiesMessage,
-          type: 'bot'
-        });
-      }
+        const companiesHtml = `
+          <div class="suggestions-container supply-chain-companies">
+            <h3 class="suggestions-title">Empresas de Cadena de Suministro</h3>
+            <div class="companies-grid">
+              ${data.suggested_companies.map((company, index) => `
+                <div class="company-card">
+                  <div class="company-number">${index + 1}</div>
+                  <div class="company-name">${company}</div>
+                </div>
+              `).join('')}
+            </div>
+            
+          </div>
+        `;
 
-      // Mensaje con resumen de coincidencias
-      if (data.total_matches > 0) {
-        const matchesMessage = `Found ${data.total_matches} experts from ${data.unique_companies} supply chain companies.`;
         addMessage({
-          text: matchesMessage,
-          type: 'bot'
+          text: companiesHtml,
+          type: 'bot',
+          isHtml: true
         });
       }
 
@@ -987,12 +998,6 @@ const handleSupplyChainExperienceResponse = async (answer) => {
       // Continuar con las preguntas de evaluación
       await new Promise(resolve => setTimeout(resolve, 1000));
       await handleEvaluationQuestions();
-      
-      console.log('✅ Supply chain data guardada:', {
-        perspective: data.supply_chain_perspective,
-        companies: data.suggested_companies?.length,
-        matches: data.total_matches
-      });
     }
   } catch (error) {
     console.error('❌ Error en handleSupplyChainExperienceResponse:', error);
@@ -1044,14 +1049,17 @@ const handleEvaluationQuestions = async () => {
     });
   }
 };
+
+
 const handleEvaluationQuestionsResponse = async (answer) => {
-  console.log('Starting handleEvaluationQuestionsResponse with:', answer);
+  console.log('=== Starting handleEvaluationQuestionsResponse ===');
   try {
+    // Primera llamada para confirmar sí/no
     const requestBody = {
       answer: answer,
       language: userData.detectedLanguage
     };
-    console.log('Sending request to backend:', requestBody);
+    console.log('Sending request:', requestBody);
 
     const response = await fetch('http://localhost:8080/api/evaluation-questions', {
       method: 'POST',
@@ -1059,9 +1067,8 @@ const handleEvaluationQuestionsResponse = async (answer) => {
       body: JSON.stringify(requestBody)
     });
 
-    console.log('Response status:', response.status);
     const data = await response.json();
-    console.log('Response data:', data);
+    console.log('Response received:', data);
 
     if (data.success) {
       addMessage({
@@ -1069,52 +1076,48 @@ const handleEvaluationQuestionsResponse = async (answer) => {
         type: 'bot'
       });
 
-      console.log('Updating phase3Data');
-      setPhase3Data(prev => {
-        const newState = {
-          ...prev,
-          evaluationRequired: data.evaluation_required
-        };
-        console.log('New phase3Data:', newState);
-        return newState;
-      });
-
       if (data.evaluation_required && data.answer_received === 'yes') {
-        console.log('Starting evaluation sections');
-        await handleEvaluationQuestionsSections();
+        setPhase3Data(prev => ({
+          ...prev,
+          evaluationRequired: true
+        }));
+        
+        // Si la respuesta es sí, iniciar las secciones
+        await startEvaluationSections();
+      } else {
+        // Si la respuesta es no, continuar con la búsqueda
+        await searchIndustryExperts();
       }
     }
   } catch (error) {
-    console.error('Error in handleEvaluationQuestionsResponse:', error);
+    console.error('Error:', error);
     addMessage({
       text: 'Error al procesar tu respuesta. Por favor, intenta nuevamente.',
       type: 'bot',
       isError: true
     });
   }
-};
 
 
 
 
 
-
-
-
-
-
-const handleEvaluationQuestionsSections = async () => {
+};const startEvaluationSections = async () => {
   console.log('=== Starting Evaluation Sections ===');
   try {
     const requestBody = {
-      sector: userData.sector,
-      region: userData.region,
-      selected_categories: phase3Data.evaluationSections.selected_categories,
+      sector: phase2Data.sector,
+      region: phase2Data.processed_region,
+      selected_categories: {
+        main: true,
+        client: true,
+        supply_chain: false
+      },
       current_questions: {},
       language: userData.detectedLanguage
     };
+    console.log('Initial sections request:', requestBody);
 
-    console.log('Sending request:', requestBody);
     const response = await fetch('http://localhost:8080/api/evaluation-questions-sections', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1122,7 +1125,7 @@ const handleEvaluationQuestionsSections = async () => {
     });
 
     const data = await response.json();
-    console.log('Received response:', data);
+    console.log('Initial sections response:', data);
 
     if (data.success) {
       addMessage({
@@ -1130,20 +1133,30 @@ const handleEvaluationQuestionsSections = async () => {
         type: 'bot'
       });
 
-      setPhase3Data(prev => ({
-        ...prev,
-        evaluationSections: {
-          ...prev.evaluationSections,
-          current: data.current_category,
-          remaining: data.remaining_categories || [],
-          completed: data.completed_categories || []
-        }
-      }));
+      setPhase3Data(prev => {
+        const newState = {
+          ...prev,
+          evaluationRequired: true,
+          evaluationSections: {
+            current: data.current_category,
+            remaining: data.remaining_categories,
+            completed: data.completed_categories,
+            questions: {},
+            selected_categories: {
+              main: true,
+              client: true,
+              supply_chain: false
+            }
+          }
+        };
+        console.log('Updated phase3Data:', newState);
+        return newState;
+      });
     }
   } catch (error) {
-    console.error('Error in evaluation sections:', error);
+    console.error('Error:', error);
     addMessage({
-      text: 'Error al procesar las preguntas de evaluación.',
+      text: 'Error al iniciar las preguntas de evaluación.',
       type: 'bot',
       isError: true
     });
@@ -1151,15 +1164,12 @@ const handleEvaluationQuestionsSections = async () => {
 };
 
 const handleEvaluationQuestionsSectionsResponse = async (answer) => {
+  console.log('=== Processing Section Response ===');
   try {
     const requestBody = {
-      sector: userData.sector,
-      region: userData.region,
-      selected_categories: {
-        main: true,
-        client: true,
-        supply_chain: false
-      },
+      sector: phase2Data.sector,
+      region: phase2Data.processed_region,
+      selected_categories: phase3Data.evaluationSections.selected_categories,
       current_category: phase3Data.evaluationSections.current,
       answer: answer,
       current_questions: {
@@ -1168,6 +1178,7 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
       },
       language: userData.detectedLanguage
     };
+    console.log('Section response request:', requestBody);
 
     const response = await fetch('http://localhost:8080/api/evaluation-questions-sections', {
       method: 'POST',
@@ -1176,6 +1187,7 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
     });
 
     const data = await response.json();
+    console.log('Section response:', data);
 
     if (data.success) {
       addMessage({
@@ -1184,28 +1196,28 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
       });
 
       if (data.status === 'completed') {
+        // Guardar las preguntas finales y continuar
         setPhase3Data(prev => ({
           ...prev,
           evaluationSections: {
             ...prev.evaluationSections,
-            questions: {
-              ...prev.evaluationSections.questions,
-              [phase3Data.evaluationSections.current]: answer
-            }
+            completed: Object.keys(data.screening_questions),
+            questions: data.screening_questions,
+            current: null,
+            remaining: []
           }
         }));
         await searchIndustryExperts();
       } else {
+        // Actualizar para la siguiente categoría
         setPhase3Data(prev => ({
           ...prev,
           evaluationSections: {
+            ...prev.evaluationSections,
             current: data.current_category,
             remaining: data.remaining_categories,
             completed: data.completed_categories,
-            questions: {
-              ...prev.evaluationSections.questions,
-              [phase3Data.evaluationSections.current]: answer
-            }
+            questions: data.current_questions
           }
         }));
       }
@@ -1220,19 +1232,20 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
   }
 };
 
+
+
+
+
+
 const searchIndustryExperts = async () => {
   try {
     const requestBody = {
       sector: phase2Data.sector,
-      processed_region: phase2Data.processed_region,
-      language: phase2Data.language,
-      companies: phase2Data.companies,
-      interested_in_companies: phase2Data.interested_in_companies,
-      employmentStatus: phase3Data.employmentStatus,
-      companiesForExpertSearch: phase3Data.companiesForExpertSearch,
-      excludedCompanies: phase3Data.excludedCompanies,
-      clientPerspective: phase3Data.clientPerspective,
-      supplyChainRequired: phase3Data.supplyChainRequired
+      region: phase2Data.processed_region.region,
+      companies: phase2Data.companies || [],
+      clientPerspective: phase3Data.clientPerspective || false,
+      supplyChainRequired: phase3Data.supplyChainRequired || false,
+      language: userData.detectedLanguage || 'en'
     };
 
     console.log('🔍 Búsqueda de expertos - Datos enviados:', requestBody);
@@ -1246,87 +1259,121 @@ const searchIndustryExperts = async () => {
     const data = await response.json();
     console.log('✅ Búsqueda de expertos - Respuesta recibida:', data);
 
-    if (data.success) {
-      const { experts_by_category, total_experts, detected_language } = data;
+    // Verificar que hay expertos en alguna categoría
+    const hasExperts = data.experts && (
+      (data.experts.main?.experts?.length > 0) ||
+      (data.experts.client?.experts?.length > 0) ||
+      (data.experts.supply_chain?.experts?.length > 0)
+    );
 
-      if (total_experts > 0) {
-        let detailedMessage = '';
+    if (data.success && hasExperts) {
+      let detailedMessage = 'Hemos encontrado los siguientes expertos:\n\n';
 
-        const formatExpertInfo = (expert) => {
-          return `- ${expert.name} (${expert.role})
-             • ${expert.experience}
-             • ${expert.companies_experience.join(', ')}
-             • ${expert.expertise.join(', ')}
-             • ${expert.region_experience.join(', ')}`;
-        };
+      // Procesar expertos principales
+      if (data.experts.main?.experts?.length > 0) {
+        detailedMessage += 'Expertos de empresas principales:\n';
+        data.experts.main.experts.forEach(expert => {
+          detailedMessage += formatExpertInfo(expert);
+        });
+      }
 
-        const categories = ['companies', 'clients', 'suppliers'];
-        categories.forEach(category => {
-          const categoryExperts = experts_by_category[category].experts;
-          if (categoryExperts && categoryExperts.length > 0) {
-            detailedMessage += `\n\n${experts_by_category[category].title}:\n`;
-            categoryExperts.forEach(expert => {
-              detailedMessage += `\n${formatExpertInfo(expert)}`;
-            });
-          }
+      // Procesar expertos de clientes si existen y se solicitaron
+      if (phase3Data.clientPerspective && data.experts.client?.experts?.length > 0) {
+        detailedMessage += '\nExpertos de empresas cliente:\n';
+        data.experts.client.experts.forEach(expert => {
+          detailedMessage += formatExpertInfo(expert);
+        });
+      }
+
+      // Procesar expertos de cadena de suministro si existen y se solicitaron
+      if (phase3Data.supplyChainRequired && data.experts.supply_chain?.experts?.length > 0) {
+        detailedMessage += '\nExpertos de cadena de suministro:\n';
+        data.experts.supply_chain.experts.forEach(expert => {
+          detailedMessage += formatExpertInfo(expert);
+        });
+      }
+
+      // Mostrar lista de expertos
+      addMessage({
+        text: detailedMessage.trim(),
+        type: 'bot'
+      });
+
+      // Actualizar estado con los expertos encontrados
+      setPhase3Data(prev => ({
+        ...prev,
+        selectedExperts: {
+          companies: data.experts.main?.experts || [],
+          clients: data.experts.client?.experts || [],
+          suppliers: data.experts.supply_chain?.experts || []
+        },
+        totalMatches: data.total_experts_found || 0,
+        uniqueCompanies: data.total_experts_shown || 0,
+        filtersApplied: {
+          detected_language: userData.detectedLanguage
+        }
+      }));
+
+      // Agregar mensaje de instrucciones para selección
+      setTimeout(() => {
+        const selectionMessage = `
+Por favor, seleccione un experto ingresando su nombre exactamente como aparece en la lista.
+
+Por ejemplo, si desea seleccionar al primer experto, escriba su nombre completo:
+"${data.experts.main?.experts[0]?.name || 'Alessandro Nielsen'}"
+
+¿A qué experto le gustaría seleccionar?`;
+
+        addMessage({
+          text: selectionMessage,
+          type: 'bot'
         });
 
-        if (detailedMessage) {
-          addMessage({
-            text: detailedMessage.trim(),
-            type: 'bot'
-          });
-          
-          setTimeout(() => {
-            addMessage({
-              text: data.selection_message,
-              type: 'bot'
-            });
-            setCurrentPhase(3);
-            setCurrentStep('expert_selection');
-          }, 1000);
-        }
+        setCurrentStep('expert_selection');
+      }, 1000);
 
-        setPhase3Data(prev => ({
-          ...prev,
-          selectedExperts: {
-            clients: experts_by_category.clients.experts,
-            companies: experts_by_category.companies.experts,
-            suppliers: experts_by_category.suppliers.experts
-          },
-          filtersApplied: {
-            ...data.filters_applied,
-            detected_language: detected_language
-          },
-          experts_by_category: {
-            clients: {
-              experts: experts_by_category.clients.experts
-            },
-            companies: {
-              experts: experts_by_category.companies.experts
-            },
-            suppliers: {
-              experts: experts_by_category.suppliers.experts
-            }
-          },
-          detected_language: detected_language
-        }));
-      }
     } else {
-      throw new Error('No se pudieron encontrar expertos que coincidan con los criterios especificados');
+      console.log('No se encontraron expertos:', data);
+      throw new Error('No se encontraron expertos que coincidan con los criterios especificados');
     }
   } catch (error) {
     console.error('❌ Error en búsqueda de expertos:', error);
     addMessage({
-      text: 'Error al buscar expertos. Por favor, intenta nuevamente.',
+      text: error.message || 'Error al buscar expertos. Por favor, intenta nuevamente.',
       type: 'bot',
       isError: true
     });
   }
 };
+
+const formatExpertInfo = (expert) => {
+  return `
+    <div class="expert-card">
+      <div class="expert-header">
+        <span class="expert-name">${expert.name}</span>
+      </div>
+      <div class="expert-details">
+        <div class="detail-item">
+          <span class="detail-label">Rol actual:</span>
+          <span class="detail-value">${expert.current_role}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Empresa:</span>
+          <span class="detail-value">${expert.current_employer}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Experiencia:</span>
+          <span class="detail-value">${expert.experience}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Ubicación:</span>
+          <span class="detail-value">${expert.location}</span>
+        </div>
+      </div>
+    </div>
+  `;
+};
 ///////////////////////////////////////////////////////////////////7
-
-
 
 const handleExpertSelection = async (expertNames) => {
   try {
@@ -1342,11 +1389,10 @@ const handleExpertSelection = async (expertNames) => {
     const requestBody = {
       selected_experts: selectedExperts,
       all_experts_data: {
-        detected_language: phase3Data.filtersApplied?.detected_language || 'en',
-        experts_by_category: {
-          clients: { experts: phase3Data.selectedExperts.clients || [] },
-          companies: { experts: phase3Data.selectedExperts.companies || [] },
-          suppliers: { experts: phase3Data.selectedExperts.suppliers || [] }
+        experts: {
+          main: { experts: phase3Data.selectedExperts.companies || [] },
+          client: { experts: phase3Data.selectedExperts.clients || [] },
+          supply_chain: { experts: phase3Data.selectedExperts.suppliers || [] }
         }
       },
       evaluation_questions: phase3Data?.evaluationSections?.questions || {}
@@ -1363,47 +1409,90 @@ const handleExpertSelection = async (expertNames) => {
     const data = await response.json();
 
     if (data.success) {
-      if (data.expert_details) {
-        setTimeout(() => {
-          const expert = data.expert_details;
-          const detailsMessage = `📋\n\n` +
-            `${expert.name}\n` +
-            `• ${expert.role}\n` +
-            `• ${expert.experience}\n` +
-            `• ${expert.companies_experience.join(', ')}\n` +
-            `• ${expert.expertise.join(', ')}\n` +
-            `• ${expert.region_experience.join(', ')}`;
+      // Mostrar detalles del experto
+      if (data.expert_details && data.expert_details.length > 0) {
+        const expert = data.expert_details[0];
+        const expertHtml = `
+          <div class="selected-expert-container">
+            <div class="expert-selection-header">
+              <h3>Experto Seleccionado</h3>
+            </div>
+            <div class="selected-expert-card">
+              <div class="expert-main-info">
+                <h4 class="expert-name">${expert.name}</h4>
+                <span class="expert-category">${expert.category || 'Principal'}</span>
+              </div>
+              <div class="expert-info-grid">
+                <div class="info-item">
+                  <span class="info-label">Rol actual</span>
+                  <span class="info-value">${expert.current_role}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Empresa</span>
+                  <span class="info-value">${expert.current_employer}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Experiencia</span>
+                  <span class="info-value">${expert.experience}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Ubicación</span>
+                  <span class="info-value">${expert.location}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
 
-          addMessage({
-            text: detailsMessage,
-            type: 'bot'
-          });
-        }, 1000);
+        addMessage({
+          text: expertHtml,
+          type: 'bot',
+          isHtml: true
+        });
       }
 
-      if (data.evaluation_questions && Object.keys(data.evaluation_questions).length > 0) {
-        setTimeout(() => {
-          let questionsMessage = `📝 Preguntas sugeridas para la evaluación:\n\n`;
-          
-          Object.entries(data.evaluation_questions).forEach(([section, questions]) => {
-            questionsMessage += `${section.toUpperCase()}:\n${questions}\n\n`;
-          });
+      // Mostrar preguntas de evaluación solo si hay preguntas con contenido
+      if (data.screening_questions && Object.values(data.screening_questions).some(questions => questions && questions.length > 0)) {
+        const questionsHtml = `
+          <div class="screening-questions-container">
+            <div class="questions-header">
+              <h3>Preguntas de Evaluación</h3>
+            </div>
+            <div class="questions-list">
+              ${Object.entries(data.screening_questions)
+                .filter(([ , questions]) => questions && questions.length > 0)
+                .map(([category, questions]) => `
+                  <div class="question-category">
+                    <h4 class="category-title">${category.toUpperCase()}</h4>
+                    <div class="question-item">${questions}</div>
+                  </div>
+                `).join('')}
+            </div>
+          </div>
+        `;
 
-          addMessage({
-            text: questionsMessage,
-            type: 'bot'
-          });
-        }, 2000);
+        addMessage({
+          text: questionsHtml,
+          type: 'bot',
+          isHtml: true
+        });
       }
 
-      if (data.final_message) {
-        setTimeout(() => {
-          addMessage({
-            text: data.final_message,
-            type: 'bot'
-          });
-        }, 3000);
-      }
+      // Mostrar mensaje final
+      const finalMessageHtml = `
+        <div class="final-message-container">
+          <div class="final-message">
+            <i class="message-icon">✓</i>
+            <p>${data.final_message || '¡Gracias por su elección! Procesaremos su solicitud.'}</p>
+          </div>
+        </div>
+      `;
+
+      addMessage({
+        text: finalMessageHtml,
+        type: 'bot',
+        isHtml: true
+      });
 
     } else {
       throw new Error(data.message || 'Error al seleccionar expertos');
@@ -1429,19 +1518,6 @@ const handleExpertSelection = async (expertNames) => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 const handleSendMessage = async (data) => {
   try {
     console.log('=== Starting handleSendMessage ===');
@@ -1454,10 +1530,8 @@ const handleSendMessage = async (data) => {
 
     setLoading(true);
 
-    // Manejar mensajes de error
     if (data.type === 'error') {
       console.log('=== Handling Error Message ===');
-      console.log('Error value:', data.value);
       addMessage({
         text: data.value,
         type: 'bot',
@@ -1467,24 +1541,19 @@ const handleSendMessage = async (data) => {
     }
 
     const userMessage = data.value;
-    console.log('User message:', userMessage);
-    
     addMessage({ text: userMessage, type: 'user' });
 
-    console.log('=== Current State ===');
-    console.log('Phase:', currentPhase);
-    console.log('Step:', currentStep);
-    console.log('Phase3Data:', phase3Data);
-
-    // Manejar evaluation_questions y evaluation_sections en fase 3
-    if (currentStep === 'evaluation_questions' || currentStep === 'evaluation_sections') {
-      setCurrentPhase(3);  // Asegurar que estamos en fase 3
+    // Manejar evaluation_questions en fase 3
+    if (currentStep === 'evaluation_questions') {
+      setCurrentPhase(3);
       
-      if (currentStep === 'evaluation_questions') {
-        console.log('=== Processing Evaluation Questions in Phase 3 ===');
+      if (!phase3Data.evaluationRequired) {
+        // Primera vez, manejando la pregunta inicial de sí/no
+        console.log('=== Processing Initial Evaluation Question ===');
         await handleEvaluationQuestionsResponse(userMessage);
       } else {
-        console.log('=== Processing Evaluation Sections in Phase 3 ===');
+        // Ya confirmó que quiere evaluación, usar el endpoint de secciones
+        console.log('=== Processing Evaluation Sections ===');
         await handleEvaluationQuestionsSectionsResponse(userMessage);
       }
       return;

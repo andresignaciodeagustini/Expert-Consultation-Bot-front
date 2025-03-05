@@ -1,3 +1,4 @@
+/* Estilos base de mensajes */
 .chat-message {
   margin-bottom: 15px;
   padding: 10px 15px;
@@ -28,6 +29,72 @@
   word-wrap: break-word;
 }
 
+/* Estilos para contenedores de sugerencias */
+.suggestions-container {
+  margin-top: 10px;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.suggestions-title {
+  padding: 15px;
+  margin: 0;
+  color: #495057;
+  font-size: 1.1em;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.companies-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  padding: 15px;
+}
+
+.company-card {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.company-card:hover {
+  background-color: #f1f3f5;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.company-number {
+  background: #007bff;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9em;
+  margin-right: 10px;
+}
+
+.company-name {
+  color: #495057;
+  font-size: 0.95em;
+}
+
+.suggestions-footer {
+  padding: 15px;
+  border-top: 1px solid #e9ecef;
+  text-align: center;
+  color: #6c757d;
+  font-size: 0.95em;
+}
+
+/* Estilos existentes para listas de compañías */
 .companies-list {
   margin-top: 15px;
   padding: 15px;
@@ -71,4 +138,19 @@
 
 .companies-section li:hover {
   background-color: #f1f3f5;
+}
+
+/* Media queries para responsividad */
+@media (max-width: 768px) {
+  .chat-message {
+    max-width: 90%;
+  }
+
+  .companies-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .suggestions-container {
+    margin: 10px -5px;
+  }
 }

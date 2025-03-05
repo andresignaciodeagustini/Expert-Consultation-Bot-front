@@ -39,7 +39,6 @@ function ChatMessage({ text, type, companies, messages, detected_language, isErr
           </div>
         )}
 
-        
         {companies.suggestions && companies.suggestions.length > 0 && (
           <div className="suggested-companies">
             <h4>{messages?.additional_suggestions}</h4>
@@ -56,11 +55,20 @@ function ChatMessage({ text, type, companies, messages, detected_language, isErr
     );
   };
 
+  // Verificar si el texto contiene HTML
+  const isHtml = typeof text === 'string' && (text.includes('<div') || text.includes('<p'));
+
   return (
     <div className={`chat-message ${type} ${isError ? 'error' : ''}`}>
       <div className="message-content">
-        <p className="message-text">{text}</p>
-        {renderCompanies()}
+        {isHtml ? (
+          <div dangerouslySetInnerHTML={{ __html: text }} />
+        ) : (
+          <>
+            <p className="message-text">{text}</p>
+            {renderCompanies()}
+          </>
+        )}
       </div>
     </div>
   );
