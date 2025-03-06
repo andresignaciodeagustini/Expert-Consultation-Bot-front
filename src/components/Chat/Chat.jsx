@@ -1266,7 +1266,6 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
 
 
 
-
 const searchIndustryExperts = async () => {
   try {
     const requestBody = {
@@ -1298,13 +1297,13 @@ const searchIndustryExperts = async () => {
     if (data.success && hasExperts) {
       let detailedMessage = `
         <div class="experts-container">
-          <h3 class="experts-title">Expertos Encontrados</h3>
+          <h3 class="experts-title">${data.messages.experts_found_title}</h3>
       `;
 
       if (data.experts.main?.experts?.length > 0) {
         detailedMessage += `
           <div class="experts-section">
-            <h4 class="section-title">Expertos de empresas principales</h4>
+            <h4 class="section-title">${data.messages.main_experts_title}</h4>
             <div class="experts-grid">
               ${data.experts.main.experts.map(expert => formatExpertInfo(expert)).join('')}
             </div>
@@ -1315,7 +1314,7 @@ const searchIndustryExperts = async () => {
       if (phase3Data.clientPerspective && data.experts.client?.experts?.length > 0) {
         detailedMessage += `
           <div class="experts-section">
-            <h4 class="section-title">Expertos de empresas cliente</h4>
+            <h4 class="section-title">${data.messages.client_experts_title}</h4>
             <div class="experts-grid">
               ${data.experts.client.experts.map(expert => formatExpertInfo(expert)).join('')}
             </div>
@@ -1326,7 +1325,7 @@ const searchIndustryExperts = async () => {
       if (phase3Data.supplyChainRequired && data.experts.supply_chain?.experts?.length > 0) {
         detailedMessage += `
           <div class="experts-section">
-            <h4 class="section-title">Expertos de cadena de suministro</h4>
+            <h4 class="section-title">${data.messages.supply_chain_experts_title}</h4>
             <div class="experts-grid">
               ${data.experts.supply_chain.experts.map(expert => formatExpertInfo(expert)).join('')}
             </div>
@@ -1360,11 +1359,12 @@ const searchIndustryExperts = async () => {
 
       // Agregar mensaje de instrucciones para selección
       setTimeout(() => {
+        const exampleName = data.experts.main?.experts[0]?.name || 'Alessandro Nielsen';
         const selectionMessage = `
           <div class="selection-prompt">
-            <p>Por favor, seleccione un experto ingresando su nombre exactamente como aparece en la lista.</p>
-            <p class="example">Por ejemplo: "${data.experts.main?.experts[0]?.name || 'Alessandro Nielsen'}"</p>
-            <p>¿A qué experto le gustaría seleccionar?</p>
+            <p>${data.messages.selection_instructions}</p>
+            <p class="example">${data.messages.selection_example.replace('{expert_name}', exampleName)}</p>
+            <p>${data.messages.selection_prompt}</p>
           </div>
         `;
 
@@ -1379,12 +1379,12 @@ const searchIndustryExperts = async () => {
 
     } else {
       console.log('No experts found:', data);
-      throw new Error('No se encontraron expertos que coincidan con los criterios especificados');
+      throw new Error(data.message || 'No experts found matching the specified criteria');
     }
   } catch (error) {
-    console.error('❌ Error en búsqueda de expertos:', error);
+    console.error('❌ Error searching experts:', error);
     addMessage({
-      text: error.message || 'Error al buscar expertos. Por favor, intenta nuevamente.',
+      text: error.message || 'Error searching experts. Please try again.',
       type: 'bot',
       isError: true
     });
@@ -1392,6 +1392,7 @@ const searchIndustryExperts = async () => {
 };
 
 const formatExpertInfo = (expert) => {
+  // También podríamos recibir las etiquetas traducidas desde el backend
   return `
     <div class="expert-card">
       <div class="expert-header">
@@ -1399,27 +1400,25 @@ const formatExpertInfo = (expert) => {
       </div>
       <div class="expert-details">
         <div class="detail-item">
-          <span class="detail-label">Rol actual</span>
+          <span class="detail-label">Current Role</span>
           <span class="detail-value">${expert.current_role}</span>
         </div>
         <div class="detail-item">
-          <span class="detail-label">Empresa</span>
+          <span class="detail-label">Company</span>
           <span class="detail-value">${expert.current_employer}</span>
         </div>
         <div class="detail-item">
-          <span class="detail-label">Experiencia</span>
+          <span class="detail-label">Experience</span>
           <span class="detail-value">${expert.experience}</span>
         </div>
         <div class="detail-item">
-          <span class="detail-label">Ubicación</span>
+          <span class="detail-label">Location</span>
           <span class="detail-value">${expert.location}</span>
         </div>
       </div>
     </div>
   `;
 };
-
-
 
 const handleExpertSelection = async (expertNames) => {
   try {
