@@ -830,7 +830,7 @@ const handleClientPerspectiveResponse = async (answer) => {
       if (isClientInterested && data.suggested_companies?.length > 0) {
         const companiesHtml = `
           <div class="suggestions-container client-companies">
-            <h3 class="suggestions-title">Empresas Cliente Sugeridas</h3>
+            
             <div class="companies-grid">
               ${data.suggested_companies.map((company, index) => `
                 <div class="company-card">
@@ -977,7 +977,7 @@ const handleSupplyChainExperienceResponse = async (answer) => {
       if (isSupplyChainInterested && data.suggested_companies?.length > 0) {
         const companiesHtml = `
           <div class="suggestions-container supply-chain-companies">
-            <h3 class="suggestions-title">Empresas de Cadena de Suministro</h3>
+            
             <div class="companies-grid">
               ${data.suggested_companies.map((company, index) => `
                 <div class="company-card">
