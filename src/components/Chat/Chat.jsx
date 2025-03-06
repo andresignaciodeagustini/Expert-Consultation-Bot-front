@@ -26,24 +26,24 @@ function Chat() {
 
   const [phase3Data, setPhase3Data] = useState({
     // Estados para evaluación
-    evaluationRequired: false,
+    evaluationRequired: false, // Se activa cuando el usuario acepta hacer preguntas
     evaluationSections: {
-      current: null,
-      remaining: [],
-      completed: [],
-      questions: {},
+      current: null,  // Categoría actual siendo evaluada
+      remaining: [],  // Categorías pendientes de evaluar
+      completed: [],  // Categorías ya evaluadas
+      questions: {},  // Almacena las preguntas por categoría
       selected_categories: {
-        main: true,
-        client: true,
-        supply_chain: false
+        main: true,     // Siempre activa si se aceptan preguntas
+        client: false,  // Se activa solo si hay interés en perspectiva cliente
+        supply_chain: false  // Se activa solo si hay interés en cadena de suministro
       }
     },
   
     // Estados para empresas y perspectivas
     clientCompanies: [],
-    clientPerspective: false,
+    clientPerspective: false,  // Se actualizará según la respuesta del usuario
     supplyChainCompanies: [],
-    supplyChainPerspective: false,
+    supplyChainPerspective: false,  // Se actualizará según la respuesta del usuario
     supplyChainRequired: "",
     excludedCompanies: [],
   
@@ -65,7 +65,7 @@ function Chat() {
     supplyChainTotalMatches: 0,
     supplyChainUniqueCompanies: 0
   });
-  
+
 
   // useEffect para sincronizar el idioma en todos los estados
   useEffect(() => {
@@ -821,8 +821,13 @@ const handleClientPerspectiveResponse = async (answer) => {
         type: 'bot'
       });
 
-      // Lista de empresas con estilo
-      if (data.suggested_companies?.length > 0) {
+      // Determinar si la respuesta es afirmativa
+      const isClientInterested = answer.toLowerCase() === 'yes' || 
+                               answer.toLowerCase() === 'sí' || 
+                               answer.toLowerCase() === 'si';
+
+      // Lista de empresas con estilo (solo si hay respuesta afirmativa)
+      if (isClientInterested && data.suggested_companies?.length > 0) {
         const companiesHtml = `
           <div class="suggestions-container client-companies">
             <h3 class="suggestions-title">Empresas Cliente Sugeridas</h3>
@@ -834,7 +839,6 @@ const handleClientPerspectiveResponse = async (answer) => {
                 </div>
               `).join('')}
             </div>
-            
           </div>
         `;
 
@@ -848,10 +852,17 @@ const handleClientPerspectiveResponse = async (answer) => {
       // Actualizar estado
       setPhase3Data(prev => ({
         ...prev,
-        clientPerspective: data.client_perspective || false,
-        clientCompanies: data.suggested_companies || [],
-        totalMatches: data.total_matches || 0,
-        uniqueCompanies: data.unique_companies || 0
+        clientPerspective: isClientInterested,
+        clientCompanies: isClientInterested ? (data.suggested_companies || []) : [],
+        totalMatches: isClientInterested ? (data.total_matches || 0) : 0,
+        uniqueCompanies: isClientInterested ? (data.unique_companies || 0) : 0,
+        evaluationSections: {
+          ...prev.evaluationSections,
+          selected_categories: {
+            ...prev.evaluationSections.selected_categories,
+            client: isClientInterested // Activar solo si la respuesta es afirmativa
+          }
+        }
       }));
 
       // Continuar con supply chain
@@ -867,8 +878,6 @@ const handleClientPerspectiveResponse = async (answer) => {
     });
   }
 };
-
-
 
 
 
@@ -926,7 +935,6 @@ const handleSupplyChainExperience = async () => {
 };
 
 
-
 const handleSupplyChainExperienceResponse = async (answer) => {
   console.log('🔍 Estado actual antes de supply chain:', phase3Data);
   console.log('📥 Respuesta supply chain:', answer);
@@ -960,8 +968,13 @@ const handleSupplyChainExperienceResponse = async (answer) => {
         type: 'bot'
       });
 
-      // Lista de empresas con estilo
-      if (data.suggested_companies?.length > 0) {
+      // Determinar si la respuesta es afirmativa
+      const isSupplyChainInterested = answer.toLowerCase() === 'yes' || 
+                                    answer.toLowerCase() === 'sí' || 
+                                    answer.toLowerCase() === 'si';
+
+      // Lista de empresas con estilo (solo si hay respuesta afirmativa)
+      if (isSupplyChainInterested && data.suggested_companies?.length > 0) {
         const companiesHtml = `
           <div class="suggestions-container supply-chain-companies">
             <h3 class="suggestions-title">Empresas de Cadena de Suministro</h3>
@@ -973,7 +986,6 @@ const handleSupplyChainExperienceResponse = async (answer) => {
                 </div>
               `).join('')}
             </div>
-            
           </div>
         `;
 
@@ -987,10 +999,17 @@ const handleSupplyChainExperienceResponse = async (answer) => {
       // Actualizar el estado
       setPhase3Data(prev => ({
         ...prev,
-        supplyChainPerspective: data.supply_chain_perspective || false,
-        supplyChainCompanies: data.suggested_companies || [],
-        supplyChainTotalMatches: data.total_matches || 0,
-        supplyChainUniqueCompanies: data.unique_companies || 0
+        supplyChainPerspective: isSupplyChainInterested,
+        supplyChainCompanies: isSupplyChainInterested ? (data.suggested_companies || []) : [],
+        supplyChainTotalMatches: isSupplyChainInterested ? (data.total_matches || 0) : 0,
+        supplyChainUniqueCompanies: isSupplyChainInterested ? (data.unique_companies || 0) : 0,
+        evaluationSections: {
+          ...prev.evaluationSections,
+          selected_categories: {
+            ...prev.evaluationSections.selected_categories,
+            supply_chain: isSupplyChainInterested // Activar solo si la respuesta es afirmativa
+          }
+        }
       }));
 
       // Continuar con las preguntas de evaluación
@@ -1006,7 +1025,6 @@ const handleSupplyChainExperienceResponse = async (answer) => {
     });
   }
 };
-
 
 
 
@@ -1100,16 +1118,20 @@ const handleEvaluationQuestionsResponse = async (answer) => {
 
 
 
-};const startEvaluationSections = async () => {
+};
+
+
+const startEvaluationSections = async () => {
   console.log('=== Starting Evaluation Sections ===');
   try {
+    // Actualizar selected_categories basado en las perspectivas
     const requestBody = {
       sector: phase2Data.sector,
       region: phase2Data.processed_region,
       selected_categories: {
-        main: true,
-        client: true,
-        supply_chain: false
+        main: true, // Siempre true
+        client: phase3Data.clientPerspective, // Basado en la respuesta del usuario
+        supply_chain: phase3Data.supplyChainPerspective // Basado en la respuesta del usuario
       },
       current_questions: {},
       language: userData.detectedLanguage
@@ -1142,8 +1164,8 @@ const handleEvaluationQuestionsResponse = async (answer) => {
             questions: {},
             selected_categories: {
               main: true,
-              client: true,
-              supply_chain: false
+              client: prev.clientPerspective,
+              supply_chain: prev.supplyChainPerspective
             }
           }
         };
@@ -1167,16 +1189,25 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
     const requestBody = {
       sector: phase2Data.sector,
       region: phase2Data.processed_region,
-      selected_categories: phase3Data.evaluationSections.selected_categories,
+      selected_categories: {
+        main: true,
+        client: phase3Data.clientPerspective,
+        supply_chain: phase3Data.supplyChainPerspective
+      },
       current_category: phase3Data.evaluationSections.current,
       answer: answer,
       current_questions: {
         ...phase3Data.evaluationSections.questions,
         [phase3Data.evaluationSections.current]: answer
       },
+      clientPerspective: phase3Data.clientPerspective,
+      supplyChainPerspective: phase3Data.supplyChainPerspective,
       language: userData.detectedLanguage
     };
+    
     console.log('Section response request:', requestBody);
+    console.log('Current perspectives - Client:', phase3Data.clientPerspective, 
+                'Supply Chain:', phase3Data.supplyChainPerspective);
 
     const response = await fetch('http://localhost:8080/api/evaluation-questions-sections', {
       method: 'POST',
@@ -1194,7 +1225,6 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
       });
 
       if (data.status === 'completed') {
-        // Guardar las preguntas finales y continuar
         setPhase3Data(prev => ({
           ...prev,
           evaluationSections: {
@@ -1207,7 +1237,6 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
         }));
         await searchIndustryExperts();
       } else {
-        // Actualizar para la siguiente categoría
         setPhase3Data(prev => ({
           ...prev,
           evaluationSections: {
@@ -1215,7 +1244,12 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
             current: data.current_category,
             remaining: data.remaining_categories,
             completed: data.completed_categories,
-            questions: data.current_questions
+            questions: data.current_questions,
+            selected_categories: {
+              main: true,
+              client: prev.clientPerspective,
+              supply_chain: prev.supplyChainPerspective
+            }
           }
         }));
       }
@@ -1229,6 +1263,8 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
     });
   }
 };
+
+
 
 
 const searchIndustryExperts = async () => {
@@ -1260,33 +1296,51 @@ const searchIndustryExperts = async () => {
     );
 
     if (data.success && hasExperts) {
-      let detailedMessage = 'Hemos encontrado los siguientes expertos:\n\n';
+      let detailedMessage = `
+        <div class="experts-container">
+          <h3 class="experts-title">Expertos Encontrados</h3>
+      `;
 
       if (data.experts.main?.experts?.length > 0) {
-        detailedMessage += 'Expertos de empresas principales:\n';
-        data.experts.main.experts.forEach(expert => {
-          detailedMessage += formatExpertInfo(expert);
-        });
+        detailedMessage += `
+          <div class="experts-section">
+            <h4 class="section-title">Expertos de empresas principales</h4>
+            <div class="experts-grid">
+              ${data.experts.main.experts.map(expert => formatExpertInfo(expert)).join('')}
+            </div>
+          </div>
+        `;
       }
 
       if (phase3Data.clientPerspective && data.experts.client?.experts?.length > 0) {
-        detailedMessage += '\nExpertos de empresas cliente:\n';
-        data.experts.client.experts.forEach(expert => {
-          detailedMessage += formatExpertInfo(expert);
-        });
+        detailedMessage += `
+          <div class="experts-section">
+            <h4 class="section-title">Expertos de empresas cliente</h4>
+            <div class="experts-grid">
+              ${data.experts.client.experts.map(expert => formatExpertInfo(expert)).join('')}
+            </div>
+          </div>
+        `;
       }
 
       if (phase3Data.supplyChainRequired && data.experts.supply_chain?.experts?.length > 0) {
-        detailedMessage += '\nExpertos de cadena de suministro:\n';
-        data.experts.supply_chain.experts.forEach(expert => {
-          detailedMessage += formatExpertInfo(expert);
-        });
+        detailedMessage += `
+          <div class="experts-section">
+            <h4 class="section-title">Expertos de cadena de suministro</h4>
+            <div class="experts-grid">
+              ${data.experts.supply_chain.experts.map(expert => formatExpertInfo(expert)).join('')}
+            </div>
+          </div>
+        `;
       }
+
+      detailedMessage += `</div>`;
 
       // Mostrar lista de expertos
       addMessage({
-        text: detailedMessage.trim(),
-        type: 'bot'
+        text: detailedMessage,
+        type: 'bot',
+        isHtml: true
       });
 
       // Actualizar estado con los expertos encontrados
@@ -1307,16 +1361,17 @@ const searchIndustryExperts = async () => {
       // Agregar mensaje de instrucciones para selección
       setTimeout(() => {
         const selectionMessage = `
-Por favor, seleccione un experto ingresando su nombre exactamente como aparece en la lista.
-
-Por ejemplo, si desea seleccionar al primer experto, escriba su nombre completo:
-"${data.experts.main?.experts[0]?.name || 'Alessandro Nielsen'}"
-
-¿A qué experto le gustaría seleccionar?`;
+          <div class="selection-prompt">
+            <p>Por favor, seleccione un experto ingresando su nombre exactamente como aparece en la lista.</p>
+            <p class="example">Por ejemplo: "${data.experts.main?.experts[0]?.name || 'Alessandro Nielsen'}"</p>
+            <p>¿A qué experto le gustaría seleccionar?</p>
+          </div>
+        `;
 
         addMessage({
           text: selectionMessage,
-          type: 'bot'
+          type: 'bot',
+          isHtml: true
         });
 
         setCurrentStep('expert_selection');
@@ -1338,13 +1393,33 @@ Por ejemplo, si desea seleccionar al primer experto, escriba su nombre completo:
 
 const formatExpertInfo = (expert) => {
   return `
-- ${expert.name}
-  • Rol actual: ${expert.current_role}
-  • Empresa actual: ${expert.current_employer}
-  • Experiencia: ${expert.experience}
-  • Ubicación: ${expert.location}
-`;
-};////////////////////////////7
+    <div class="expert-card">
+      <div class="expert-header">
+        <span class="expert-name">${expert.name}</span>
+      </div>
+      <div class="expert-details">
+        <div class="detail-item">
+          <span class="detail-label">Rol actual</span>
+          <span class="detail-value">${expert.current_role}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Empresa</span>
+          <span class="detail-value">${expert.current_employer}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Experiencia</span>
+          <span class="detail-value">${expert.experience}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Ubicación</span>
+          <span class="detail-value">${expert.location}</span>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+
 
 const handleExpertSelection = async (expertNames) => {
   try {
@@ -1354,7 +1429,7 @@ const handleExpertSelection = async (expertNames) => {
       .filter(name => name.length > 0);
 
     if (!phase3Data?.selectedExperts) {
-      throw new Error('No hay datos de expertos disponibles');
+      throw new Error('No experts data available');
     }
 
     const requestBody = {
@@ -1369,7 +1444,7 @@ const handleExpertSelection = async (expertNames) => {
       evaluation_questions: phase3Data?.evaluationSections?.questions || {}
     };
 
-    console.log('Datos enviados para selección:', requestBody);
+    console.log('Request data:', requestBody);
 
     const response = await fetch('http://localhost:8080/api/select-experts', {
       method: 'POST',
@@ -1380,97 +1455,84 @@ const handleExpertSelection = async (expertNames) => {
     const data = await response.json();
 
     if (data.success) {
-      // Mostrar detalles del experto
       if (data.expert_details && data.expert_details.length > 0) {
         const expert = data.expert_details[0];
         const expertHtml = `
           <div class="selected-expert-container">
-            <div class="expert-selection-header">
-              
-            </div>
+            <div class="expert-selection-header"></div>
             <div class="selected-expert-card">
               <div class="expert-main-info">
                 <h4 class="expert-name">${expert.name}</h4>
-                <span class="expert-category">${expert.category || 'Principal'}</span>
+                <span class="expert-category">${expert.category}</span>
               </div>
               <div class="expert-info-grid">
                 <div class="info-item">
-                  <span class="info-label">Rol actual</span>
+                  <span class="info-label">Current Role</span>
                   <span class="info-value">${expert.current_role}</span>
                 </div>
                 <div class="info-item">
-                  <span class="info-label">Empresa</span>
+                  <span class="info-label">Company</span>
                   <span class="info-value">${expert.current_employer}</span>
                 </div>
                 <div class="info-item">
-                  <span class="info-label">Experiencia</span>
+                  <span class="info-label">Experience</span>
                   <span class="info-value">${expert.experience}</span>
                 </div>
                 <div class="info-item">
-                  <span class="info-label">Ubicación</span>
+                  <span class="info-label">Location</span>
                   <span class="info-value">${expert.location}</span>
                 </div>
               </div>
             </div>
           </div>
         `;
-
-        addMessage({
-          text: expertHtml,
-          type: 'bot',
-          isHtml: true
-        });
+        addMessage({ text: expertHtml, type: 'bot', isHtml: true });
       }
 
-      // Mostrar preguntas de evaluación solo si hay preguntas con contenido
-      if (data.screening_questions && Object.values(data.screening_questions).some(questions => questions && questions.length > 0)) {
+      if (data.screening_questions) {
         const questionsHtml = `
           <div class="screening-questions-container">
             <div class="questions-header">
-              <h3>Preguntas de Evaluación</h3>
+              <h3>Screening Questions</h3>
             </div>
             <div class="questions-list">
               ${Object.entries(data.screening_questions)
-                .filter(([ , questions]) => questions && questions.length > 0)
-                .map(([category, questions]) => `
-                  <div class="question-category">
-                    <h4 class="category-title">${category.toUpperCase()}</h4>
-                    <div class="question-item">${questions}</div>
-                  </div>
-                `).join('')}
+                .map(([category, questions]) => {
+                  const categoryLabels = {
+                    main: 'MAIN COMPANIES',
+                    client: 'CLIENT COMPANIES',
+                    supply_chain: 'SUPPLY CHAIN COMPANIES'
+                  };
+                  
+                  return `
+                    <div class="question-category">
+                      <h4 class="category-title">${categoryLabels[category]}</h4>
+                      <div class="question-item">${questions}</div>
+                    </div>
+                  `;
+                }).join('')}
             </div>
           </div>
         `;
-
-        addMessage({
-          text: questionsHtml,
-          type: 'bot',
-          isHtml: true
-        });
+        addMessage({ text: questionsHtml, type: 'bot', isHtml: true });
       }
 
-      // Mostrar mensaje final
       const finalMessageHtml = `
         <div class="final-message-container">
           <div class="final-message">
             <i class="message-icon">✓</i>
-            <p>${data.final_message || '¡Gracias por su elección! Procesaremos su solicitud.'}</p>
+            <p>${data.final_message}</p>
           </div>
         </div>
       `;
-
-      addMessage({
-        text: finalMessageHtml,
-        type: 'bot',
-        isHtml: true
-      });
+      addMessage({ text: finalMessageHtml, type: 'bot', isHtml: true });
 
     } else {
-      throw new Error(data.message || 'Error al seleccionar expertos');
+      throw new Error(data.message || 'Error selecting experts');
     }
 
   } catch (error) {
-    console.error('Error en handleExpertSelection:', error);
+    console.error('Error in handleExpertSelection:', error);
     addMessage({
       text: error.message,
       type: 'bot',
@@ -1478,11 +1540,6 @@ const handleExpertSelection = async (expertNames) => {
     });
   }
 };
-
-
-
-
-
 
 
 
