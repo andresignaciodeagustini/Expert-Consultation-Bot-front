@@ -457,9 +457,7 @@ const handleCompanySuggestions = async () => {
               </div>
             `).join('')}
           </div>
-          <div class="suggestions-footer">
-            <p>¿Estás de acuerdo con esta lista?</p>
-          </div>
+         
         </div>
       `;
 
@@ -1233,10 +1231,6 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
 };
 
 
-
-
-
-
 const searchIndustryExperts = async () => {
   try {
     const requestBody = {
@@ -1248,7 +1242,7 @@ const searchIndustryExperts = async () => {
       language: userData.detectedLanguage || 'en'
     };
 
-    console.log('🔍 Búsqueda de expertos - Datos enviados:', requestBody);
+    console.log('🔍 Search Data:', requestBody);
 
     const response = await fetch('http://localhost:8080/api/industry-experts', {
       method: 'POST',
@@ -1257,9 +1251,8 @@ const searchIndustryExperts = async () => {
     });
 
     const data = await response.json();
-    console.log('✅ Búsqueda de expertos - Respuesta recibida:', data);
+    console.log('✅ Response received:', data);
 
-    // Verificar que hay expertos en alguna categoría
     const hasExperts = data.experts && (
       (data.experts.main?.experts?.length > 0) ||
       (data.experts.client?.experts?.length > 0) ||
@@ -1269,7 +1262,6 @@ const searchIndustryExperts = async () => {
     if (data.success && hasExperts) {
       let detailedMessage = 'Hemos encontrado los siguientes expertos:\n\n';
 
-      // Procesar expertos principales
       if (data.experts.main?.experts?.length > 0) {
         detailedMessage += 'Expertos de empresas principales:\n';
         data.experts.main.experts.forEach(expert => {
@@ -1277,7 +1269,6 @@ const searchIndustryExperts = async () => {
         });
       }
 
-      // Procesar expertos de clientes si existen y se solicitaron
       if (phase3Data.clientPerspective && data.experts.client?.experts?.length > 0) {
         detailedMessage += '\nExpertos de empresas cliente:\n';
         data.experts.client.experts.forEach(expert => {
@@ -1285,7 +1276,6 @@ const searchIndustryExperts = async () => {
         });
       }
 
-      // Procesar expertos de cadena de suministro si existen y se solicitaron
       if (phase3Data.supplyChainRequired && data.experts.supply_chain?.experts?.length > 0) {
         detailedMessage += '\nExpertos de cadena de suministro:\n';
         data.experts.supply_chain.experts.forEach(expert => {
@@ -1333,7 +1323,7 @@ Por ejemplo, si desea seleccionar al primer experto, escriba su nombre completo:
       }, 1000);
 
     } else {
-      console.log('No se encontraron expertos:', data);
+      console.log('No experts found:', data);
       throw new Error('No se encontraron expertos que coincidan con los criterios especificados');
     }
   } catch (error) {
@@ -1348,32 +1338,13 @@ Por ejemplo, si desea seleccionar al primer experto, escriba su nombre completo:
 
 const formatExpertInfo = (expert) => {
   return `
-    <div class="expert-card">
-      <div class="expert-header">
-        <span class="expert-name">${expert.name}</span>
-      </div>
-      <div class="expert-details">
-        <div class="detail-item">
-          <span class="detail-label">Rol actual:</span>
-          <span class="detail-value">${expert.current_role}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">Empresa:</span>
-          <span class="detail-value">${expert.current_employer}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">Experiencia:</span>
-          <span class="detail-value">${expert.experience}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">Ubicación:</span>
-          <span class="detail-value">${expert.location}</span>
-        </div>
-      </div>
-    </div>
-  `;
-};
-///////////////////////////////////////////////////////////////////7
+- ${expert.name}
+  • Rol actual: ${expert.current_role}
+  • Empresa actual: ${expert.current_employer}
+  • Experiencia: ${expert.experience}
+  • Ubicación: ${expert.location}
+`;
+};////////////////////////////7
 
 const handleExpertSelection = async (expertNames) => {
   try {
@@ -1415,7 +1386,7 @@ const handleExpertSelection = async (expertNames) => {
         const expertHtml = `
           <div class="selected-expert-container">
             <div class="expert-selection-header">
-              <h3>Experto Seleccionado</h3>
+              
             </div>
             <div class="selected-expert-card">
               <div class="expert-main-info">
