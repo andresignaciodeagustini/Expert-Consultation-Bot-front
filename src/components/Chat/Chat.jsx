@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import './Chat.css'
 import ChatInput from '../ChatInput/ChatInput'
 import ChatMessage from '../ChatMessage/ChatMessage'
+import { fetchWithRetry } from '../../utils/fetchWithRetry'; 
 
 function Chat() {
   const [messages, setMessages] = useState([])  // Inicializado vacío
@@ -91,16 +92,20 @@ function Chat() {
 useEffect(() => {
   const fetchWelcomeMessage = async () => {
     try {
-      // Si estamos en desarrollo local, usa la ruta relativa
       const isLocalDevelopment = import.meta.env.MODE === 'development';
       const url = isLocalDevelopment 
-        ? '/api/welcome-message'  // Esto usará el proxy configurado en vite.config.js
-        : `${import.meta.env.VITE_API_URL}/api/welcome-message`;  // Esto mantiene la URL de producción
+        ? '/api/welcome-message'
+        : `${import.meta.env.VITE_API_URL}/api/welcome-message`;
 
-      const response = await fetch(url);
+      const response = await fetchWithRetry(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        }
+      });
+      
       const data = await response.json();
       
-      // El resto de tu código se mantiene exactamente igual
       if (data.success) {
         if (data.is_english_speaking) {
           setMessages([
@@ -144,26 +149,26 @@ useEffect(() => {
           ...prev,
           detectedLanguage: data.detected_language,
           countryCode: data.country_code
-        }))
+        }));
       } else {
         setMessages([{
           text: "Welcome to Silverlight Research Expert Network! Please enter your email:",
           type: 'bot',
           className: 'chat-message bot'
-        }])
+        }]);
       }
     } catch (error) {
-      console.error('Error fetching welcome message:', error)
+      console.error('Error fetching welcome message after retries:', error);
       setMessages([{
         text: "Welcome to Silverlight Research Expert Network! Please enter your email:",
         type: 'bot',
         className: 'chat-message bot'
-      }])
+      }]);
     }
-  }
+  };
 
-  fetchWelcomeMessage()
-}, [])
+  fetchWelcomeMessage();
+}, []);
 
 
 
