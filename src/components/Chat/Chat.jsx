@@ -91,12 +91,18 @@ function Chat() {
 useEffect(() => {
   const fetchWelcomeMessage = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8080/api/welcome-message')
-      const data = await response.json()
+      // Si estamos en desarrollo local, usa la ruta relativa
+      const isLocalDevelopment = import.meta.env.MODE === 'development';
+      const url = isLocalDevelopment 
+        ? '/api/welcome-message'  // Esto usará el proxy configurado en vite.config.js
+        : `${import.meta.env.VITE_API_URL}/api/welcome-message`;  // Esto mantiene la URL de producción
+
+      const response = await fetch(url);
+      const data = await response.json();
       
+      // El resto de tu código se mantiene exactamente igual
       if (data.success) {
         if (data.is_english_speaking) {
-          // Para países de habla inglesa
           setMessages([
             {
               text: data.messages.greeting.english,
@@ -110,27 +116,22 @@ useEffect(() => {
             }
           ]);
         } else {
-          // Para países no ingleses, mostrar los cuatro mensajes separados
           setMessages([
-            // Mensaje de bienvenida en inglés
             {
               text: data.messages.greeting.english,
               type: 'bot',
               className: 'chat-message bot'
             },
-            // Mensaje de bienvenida traducido
             {
               text: data.messages.greeting.translated,
               type: 'bot',
               className: 'chat-message bot'
             },
-            // Instrucciones en inglés
             {
               text: data.messages.instruction.english,
               type: 'bot',
               className: 'chat-message bot'
             },
-            // Instrucciones traducidas
             {
               text: data.messages.instruction.translated,
               type: 'bot',
