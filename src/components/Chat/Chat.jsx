@@ -92,12 +92,9 @@ function Chat() {
 useEffect(() => {
   const fetchWelcomeMessage = async () => {
     try {
-      const isLocalDevelopment = import.meta.env.MODE === 'development';
-      const url = isLocalDevelopment 
-        ? '/api/welcome-message'
-        : `${import.meta.env.VITE_API_URL}/api/welcome-message`;
-
-      const response = await fetchWithRetry(url, {
+      console.log('Fetching welcome message from:', import.meta.env.VITE_API_URL);
+      
+      const response = await fetchWithRetry(`${import.meta.env.VITE_API_URL}/api/welcome-message`, {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -105,9 +102,17 @@ useEffect(() => {
       });
       
       const data = await response.json();
+      console.log('Welcome Message Response:', {
+        success: data.success,
+        country: data.country_code,
+        language: data.detected_language,
+        isEnglishSpeaking: data.is_english_speaking,
+        hasTranslations: !!data.messages?.greeting?.translated
+      });
       
       if (data.success) {
         if (data.is_english_speaking) {
+          console.log('Setting English-only messages');
           setMessages([
             {
               text: data.messages.greeting.english,
@@ -121,6 +126,7 @@ useEffect(() => {
             }
           ]);
         } else {
+          console.log('Setting bilingual messages');
           setMessages([
             {
               text: data.messages.greeting.english,
@@ -150,20 +156,11 @@ useEffect(() => {
           detectedLanguage: data.detected_language,
           countryCode: data.country_code
         }));
-      } else {
-        setMessages([{
-          text: "Welcome to Silverlight Research Expert Network! Please enter your email:",
-          type: 'bot',
-          className: 'chat-message bot'
-        }]);
       }
     } catch (error) {
-      console.error('Error fetching welcome message after retries:', error);
-      setMessages([{
-        text: "Welcome to Silverlight Research Expert Network! Please enter your email:",
-        type: 'bot',
-        className: 'chat-message bot'
-      }]);
+      console.error('Error fetching welcome message:', error);
+      console.error('Error details:', error.message);
+      // ... manejo de error
     }
   };
 
