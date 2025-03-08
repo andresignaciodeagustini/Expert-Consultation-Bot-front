@@ -4,7 +4,13 @@ import Chat from "./components/Chat/Chat"
 function App() {
   useEffect(() => {
     // Ping inmediato al cargar la página
-    fetch('https://expert-consultation-bot-back.vercel.app/api/ping')
+    fetch('https://expert-consultation-bot-back-ab9540834110.herokuapp.com/api/ping', {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include'
+    })
       .then(response => {
         if (response.ok) {
           console.log('Servidor iniciado:', new Date().toLocaleString());
@@ -14,7 +20,13 @@ function App() {
 
     // Ping más frecuente en los primeros minutos
     const initialPingInterval = setInterval(() => {
-      fetch('https://expert-consultation-bot-back.vercel.app/api/ping')
+      fetch('https://expert-consultation-bot-back-ab9540834110.herokuapp.com/api/ping', {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        credentials: 'include'
+      })
         .then(response => {
           if (response.ok) {
             console.log('Servidor activo (frecuente):', new Date().toLocaleString());
@@ -28,7 +40,13 @@ function App() {
       clearInterval(initialPingInterval);
       
       const regularPingInterval = setInterval(() => {
-        fetch('https://expert-consultation-bot-back.vercel.app/api/ping')
+        fetch('https://expert-consultation-bot-back-ab9540834110.herokuapp.com/api/ping', {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          credentials: 'include'
+        })
           .then(response => {
             if (response.ok) {
               console.log('Servidor activo (normal):', new Date().toLocaleString());
