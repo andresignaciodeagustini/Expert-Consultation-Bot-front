@@ -19,6 +19,7 @@ function Chat() {
 
   const [phase2Data, setPhase2Data] = useState({
     sector: '',
+    specific_area: '', 
     processed_region: '',
     language: '',         
     companies: [],
@@ -94,7 +95,7 @@ useEffect(() => {
     try {
       console.log('Fetching welcome message from:', import.meta.env.VITE_API_URL);
       
-      const response = await fetchWithRetry(`${import.meta.env.VITE_API_URL}/api/welcome-message`, {
+      const response = await fetchWithRetry(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/welcome-message`, {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -172,7 +173,7 @@ useEffect(() => {
 
   const handleEmailCapture = async (email) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/email/capture`, {
+      const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/ai/email/capture`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, text: email })
@@ -203,7 +204,7 @@ useEffect(() => {
 
   const handleNameCapture = async (name) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/name/capture`, {
+      const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/ai/name/capture`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -235,7 +236,7 @@ useEffect(() => {
   
 const handleExpertConnection = async (answer) => {
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/expert-connection/ask`, {
+    const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/ai/expert-connection/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -285,10 +286,9 @@ const handleExpertConnection = async (answer) => {
 
 
 
-
 const handleSectorSelection = async (sector) => {
   try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/sector-experience`, {
+      const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/sector-experience`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -298,33 +298,76 @@ const handleSectorSelection = async (sector) => {
           })
       });
       
-        const data = await response.json();
+      const data = await response.json();
       
-        if (data.success) {
-            setPhase2Data(prev => ({ ...prev, sector }));
-            addMessage({ 
-                text: data.message, 
-                type: 'bot',
-                options: data.options 
-            });
-            setCurrentStep('region');
-        }
-    } catch (error) {
-        console.error('Error handling sector selection:', error);
-        addMessage({ 
-            text: `Error: ${error.message}`, 
-            type: 'bot', 
-            isError: true 
-        });
+      if (data.success) {
+          setPhase2Data(prev => ({ ...prev, sector }));
+          addMessage({ 
+              text: data.message, 
+              type: 'bot',
+              options: data.options 
+          });
+          
+          // Cambiar según el next_step
+          if (data.next_step === 'specific_area_inquiry') {
+              setCurrentStep('specific_area');
+          } else if (data.next_step === 'region') {
+              setCurrentStep('region');
+          }
+      }
+  } catch (error) {
+      console.error('Error handling sector selection:', error);
+      addMessage({ 
+          text: `Error: ${error.message}`, 
+          type: 'bot', 
+          isError: true 
+      });
+  }
+};
+
+const handleSpecificAreaSelection = async (specificArea) => {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/sector-experience`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sector: phase2Data.sector,
+        specific_area: specificArea,
+        name: userData.name,
+        language: userData.detectedLanguage
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      setPhase2Data(prev => ({ 
+        ...prev, 
+        specific_area: specificArea 
+      }));
+      
+      addMessage({ 
+        text: data.message, 
+        type: 'bot',
+        options: data.options 
+      });
+      
+      // Cambiar al siguiente paso
+      setCurrentStep('region');
     }
-  };
-
-
-
+  } catch (error) {
+    console.error('Error handling specific area selection:', error);
+    addMessage({ 
+      text: `Error: ${error.message}`, 
+      type: 'bot', 
+      isError: true 
+    });
+  }
+};
 
   const handleRegionInput = async (region) => {
     try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/test/process-text`, {
+        const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/ai/test/process-text`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -364,7 +407,7 @@ const handleSectorSelection = async (sector) => {
             return;
         }
 
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/simple-expert-connection`, {
+        const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/simple-expert-connection`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -426,7 +469,7 @@ const handleCompanySuggestions = async () => {
           bodyData.companies = phase2Data.companies;
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/company-suggestions-test`, {
+      const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/company-suggestions-test`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(bodyData)
@@ -490,7 +533,7 @@ const handleCompanySuggestions = async () => {
 const handleCompanyAgreement = async (userMessage) => {
   try {
       setLoading(true);
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/process-companies-agreement`, {
+      const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/process-companies-agreement`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -564,7 +607,7 @@ const handleEmploymentStatus = async () => {
     };
     console.log('🟦 [handleEmploymentStatus] Request:', requestBody);
     
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/specify-employment-status`, {
+    const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/specify-employment-status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -605,7 +648,7 @@ const handleEmploymentStatusResponse = async (status) => {
     };
     console.log('🟨 [handleEmploymentStatusResponse] Request:', requestBody);
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/specify-employment-status`, {
+    const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/specify-employment-status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -650,7 +693,7 @@ const handleExcludeCompanies = async () => {
     };
     console.log('🟩 [handleExcludeCompanies] Request:', requestBody);
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/exclude-companies`, {
+    const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/exclude-companies`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -693,7 +736,7 @@ const handleExcludeCompaniesResponse = async (answer) => {
     };
     console.log('📤 Enviando solicitud a exclude-companies:', requestBody);
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/exclude-companies`, {
+    const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/exclude-companies`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -754,7 +797,7 @@ const handleClientPerspective = async () => {
     };
     console.log('📤 Enviando solicitud a client-perspective:', requestBody);
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/client-perspective`, {
+    const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/client-perspective`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -796,7 +839,7 @@ const handleClientPerspectiveResponse = async (answer) => {
       language: userData.detectedLanguage
     };
     
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/client-perspective`, {
+    const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/client-perspective`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -901,7 +944,7 @@ const handleSupplyChainExperience = async () => {
       language: userData.detectedLanguage
     };
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/supply-chain-experience`, {
+    const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/supply-chain-experience`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -941,7 +984,7 @@ const handleSupplyChainExperienceResponse = async (answer) => {
       language: userData.detectedLanguage
     };
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/supply-chain-experience`, {
+    const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/supply-chain-experience`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -1033,7 +1076,7 @@ const handleEvaluationQuestions = async () => {
       language: userData.detectedLanguage
     };
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/evaluation-questions`, {
+    const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/evaluation-questions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -1066,7 +1109,7 @@ const handleEvaluationQuestionsResponse = async (answer) => {
       language: userData.detectedLanguage
     };
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/evaluation-questions`, {
+    const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/evaluation-questions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -1127,7 +1170,7 @@ const startEvaluationSections = async () => {
     };
     console.log('Initial sections request:', requestBody);
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/evaluation-questions-sections`, {
+    const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/evaluation-questions-sections`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -1198,7 +1241,7 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
     console.log('Current perspectives - Client:', phase3Data.clientPerspective, 
                 'Supply Chain:', phase3Data.supplyChainPerspective);
 
-                const response = await fetch(`${import.meta.env.VITE_API_URL}/api/evaluation-questions-sections`, {
+                const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/evaluation-questions-sections`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(requestBody)
@@ -1268,7 +1311,7 @@ const searchIndustryExperts = async () => {
 
     console.log('🔍 Search Data:', requestBody);
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/industry-experts`, {
+    const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL}/api/industry-experts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -1599,6 +1642,10 @@ const handleSendMessage = async (data) => {
         case 'sector':
           await handleSectorSelection(userMessage);
           break;
+        
+        case 'specific_area':  // Nuevo caso
+          await handleSpecificAreaSelection(userMessage);
+          break;
         case 'region':
           await handleRegionInput(userMessage);
           break;
@@ -1674,6 +1721,7 @@ const isInputDisabled = () => {
     'expert_preferences',
     'final_confirmation',
     'sector_selection',
+    'specific_area',
     'region',
     'companies',
     'next_step',
