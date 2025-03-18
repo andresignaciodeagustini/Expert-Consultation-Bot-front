@@ -171,72 +171,107 @@ useEffect(() => {
 
 
 
-  const handleEmailCapture = async (email) => {
-    try {
-      const response = await fetch(`${ import.meta.env.VITE_API_URL}/api/ai/email/capture`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, text: email })
-      })
-      const data = await response.json()
+const handleEmailCapture = async (email) => {
+  try {
+    console.log('Capturando email:', email);
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/email/capture`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, text: email })
+    })
+    
+    console.log('Respuesta del servidor:', response);
+    const data = await response.json()
+    console.log('Datos procesados:', data);
+    
+    if (data.success) {
+      console.log('Email procesado con éxito');
+      setUserData(prev => ({
+        ...prev,
+        email,
+        isRegistered: data.is_registered,
+        detectedLanguage: data.detected_language
+      }))
       
-      if (data.success) {
-        setUserData(prev => ({
-          ...prev,
-          email,
-          isRegistered: data.is_registered,
-          detectedLanguage: data.detected_language
-        }))
-        addMessage({ text: data.message, type: 'bot' })
-        setCurrentStep('name')
-      }
-    } catch (error) {
-      console.error('Error processing email:', error)
-      addMessage({ 
-        text: `Error processing email: ${error.message}`, 
-        type: 'bot', 
-        isError: true 
-      })
-    }
-  }
-
-
-
-  const handleNameCapture = async (name) => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/name/capture`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: name,
-          is_registered: userData.isRegistered
-        })
-      })
-      const data = await response.json()
+      console.log('Añadiendo mensaje:', data.message);
+      addMessage({ text: data.message, type: 'bot' })
       
-      if (data.success) {
-        setUserData(prev => ({ ...prev, name }))
-        addMessage({ 
-          text: data.message, 
-          type: 'bot',
-          options: data.options 
-        })
-        setCurrentStep('expert_connection')
-      }
-    } catch (error) {
-      console.error('Error processing name:', error)
-      addMessage({ 
-        text: `Error processing name: ${error.message}`, 
-        type: 'bot', 
-        isError: true 
-      })
+      console.log('Cambiando paso a name');
+      setCurrentStep('name')
     }
+  } catch (error) {
+    console.error('Error procesando email:', error)
+    addMessage({ 
+      text: `Error processing email: ${error.message}`, 
+      type: 'bot', 
+      isError: true 
+    })
   }
+}
 
+const handleNameCapture = async (name) => {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/name/capture`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: name,
+        is_registered: userData.isRegistered
+      })
+    });
+
+    // Obtener el texto del error si la respuesta no es exitosa
+    if (!response.ok) {
+      // Intentar obtener el texto del error
+      const errorText = await response.text();
+      console.error('Full error response:', errorText);
+      
+      // Si es posible, intentar parsear como JSON
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+        console.error('Parsed error data:', errorData);
+      } catch (parseError) {
+        console.error('Could not parse error response as JSON:', parseError);
+      }
+
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+
+    const data = await response.json();
+    
+    console.log('Name capture full response:', data);
+
+    if (data.success) {
+      setUserData(prev => ({ ...prev, name }));
+      addMessage({ 
+        text: data.message, 
+        type: data.type || 'bot',
+        options: data.options,
+        detected_language: data.detected_language,
+        step: data.step,
+        next_action: data.next_action,
+        isError: data.isError || false
+      });
+      setCurrentStep('expert_connection');
+    } else {
+      throw new Error(data.error || 'Error processing name');
+    }
+  } catch (error) {
+    console.error('Detailed error processing name:', error);
+    
+    // Mostrar mensaje de error más detallado
+    addMessage({ 
+      text: `Error: ${error.message}`, 
+      type: 'bot', 
+      isError: true 
+    });
+  }
+};
   
 const handleExpertConnection = async (answer) => {
   try {
-    const response = await fetch(`${ import.meta.env.VITE_API_URL}/api/ai/expert-connection/ask`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/expert-connection/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -288,7 +323,7 @@ const handleExpertConnection = async (answer) => {
 
 const handleSectorSelection = async (sector) => {
   try {
-      const response = await fetch(`${ import.meta.env.VITE_API_URL}/api/sector-experience`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/sector-experience`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -327,7 +362,7 @@ const handleSectorSelection = async (sector) => {
 
 const handleSpecificAreaSelection = async (specificArea) => {
   try {
-    const response = await fetch(`${ import.meta.env.VITE_API_URL}/api/sector-experience`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/sector-experience`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -367,7 +402,7 @@ const handleSpecificAreaSelection = async (specificArea) => {
 
   const handleRegionInput = async (region) => {
     try {
-        const response = await fetch(`${ import.meta.env.VITE_API_URL}/api/ai/test/process-text`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/test/process-text`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -400,60 +435,88 @@ const handleSpecificAreaSelection = async (specificArea) => {
 
 
 
- const handleCompaniesInput = async (companies) => {
+
+  const handleCompaniesInput = async (companies) => {
     try {
-        if (companies.toLowerCase() === 'no') {
+        // Convertir a minúsculas para comparación consistente
+        const normalizedCompanies = companies.toLowerCase().trim();
+
+        // Si la respuesta es 'no', ir directamente a sugerencias de empresas
+        if (normalizedCompanies === 'no') {
             await handleCompanySuggestions();
             return;
         }
 
-        const response = await fetch(`${ import.meta.env.VITE_API_URL}/api/simple-expert-connection`, {
+        // Realizar la solicitud al backend
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/simple-expert-connection`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json' 
+            },
             body: JSON.stringify({
-                answer: companies,
-                language: userData.detectedLanguage
+                text: companies,  // Usar el texto original
+                language: userData.detectedLanguage || 'en'
             })
         });
+
+        // Manejar errores de respuesta HTTP
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Error processing companies');
+        }
+
+        // Parsear la respuesta
         const data = await response.json();
 
+        // Verificar si la respuesta es exitosa
         if (data.success) {
-            const isInterested = companies.toLowerCase() !== 'no';
+            // Determinar si está interesado en empresas
+            const isInterested = normalizedCompanies !== 'no';
 
+            // Actualizar datos de la fase 2
             setPhase2Data(prev => ({ 
                 ...prev, 
-                companies: data.companies || [],
+                companies: data.preselected_companies || [],
                 interested_in_companies: isInterested,
                 isCompleted: true
             }));
 
+            // Añadir mensaje del bot
             addMessage({ 
                 text: data.message, 
                 type: 'bot',
                 options: data.options 
             });
 
-            // Primero actualizamos Phase3Data
+            // Si está interesado, actualizar datos de la fase 3
             if (isInterested) {
                 setPhase3Data(prev => ({
                     ...prev,
-                    companiesForExpertSearch: data.companies || [],
+                    companiesForExpertSearch: data.preselected_companies || [],
                     currentExpertStep: 'initial'
                 }));
             }
 
-            // Luego llamamos a handleCompanySuggestions
+            // Proceder con sugerencias de empresas
             await handleCompanySuggestions();
+        } else {
+            // Manejar caso de respuesta no exitosa
+            throw new Error(data.error || 'Unknown error processing companies');
         }
     } catch (error) {
         console.error('Error processing companies:', error);
+        
+        // Añadir mensaje de error
         addMessage({
             text: `Error: ${error.message}`,
             type: 'bot',
             isError: true
         });
+
+        // Opcional: manejar el error de manera más específica
+        // Por ejemplo, reintentar, mostrar un mensaje específico, etc.
     }
-}
+};
 
 const handleCompanySuggestions = async () => {
   try {
@@ -529,62 +592,64 @@ const handleCompanySuggestions = async () => {
     setLoading(false);
   }
 };
-
 const handleCompanyAgreement = async (userMessage) => {
   try {
-      setLoading(true);
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/process-companies-agreement`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-              text: userMessage,
-              language: userData.detectedLanguage
-          })
-      });
-      const data = await response.json();
+    setLoading(true);
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/process-companies-agreement`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: userMessage,
+        language: userData.detectedLanguage
+      })
+    });
+    
+    const data = await response.json();
+    console.log('Company Agreement Response:', data); // Añadir log para depuración
   
-      if (data.success) {
-        addMessage({
-          text: data.message,
-          type: 'bot'
-        });
-  
-        // Corregido: verificar la intención correctamente
-        if (data.agreed.intention.toLowerCase() === 'yes') {
-          console.log('User agreed, proceeding to employment status');
-          setCurrentStep('employment_status'); // Agregado para mantener el estado actualizado
-          setTimeout(() => {
-            handleEmploymentStatus();
-          }, 1000);
-        } else {
-          console.log('User disagreed, generating new list');
-          setCurrentStep('companies'); // Agregado para volver al paso de compañías
-          setTimeout(() => {
-            handleCompanySuggestions();
-          }, 1000);
-        }
-      } else {
-        addMessage({
-          text: data.message || 'Error processing your response. Please try again.',
-          type: 'bot',
-          isError: true
-        });
-      }
-    } catch (error) {
-      console.error('Error processing company agreement:', error);
+    if (data.success) {
       addMessage({
-        text: 'Error processing your response. Please try again.',
+        text: data.message,
+        type: 'bot'
+      });
+  
+      // Verificación más robusta de la intención
+      const intention = data.agreed?.intention || 
+                        (typeof data.agreed === 'string' ? data.agreed : 'no');
+      
+      console.log('Detected Intention:', intention);
+
+      if (intention.toLowerCase() === 'yes') {
+        console.log('User agreed, proceeding to employment status');
+        setCurrentStep('employment_status');
+        setTimeout(() => {
+          handleEmploymentStatus();
+        }, 1000);
+      } else {
+        console.log('User disagreed, generating new list');
+        setCurrentStep('companies');
+        setTimeout(() => {
+          handleCompanySuggestions();
+        }, 1000);
+      }
+    } else {
+      addMessage({
+        text: data.message || 'Error processing your response. Please try again.',
         type: 'bot',
         isError: true
       });
-    } finally {
-      setLoading(false);
     }
-  };
-
-
-
-
+  } catch (error) {
+    console.error('Error processing company agreement:', error);
+    addMessage({
+      text: 'Error processing your response. Please try again.',
+      type: 'bot',
+      isError: true
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
 
 
@@ -648,7 +713,7 @@ const handleEmploymentStatusResponse = async (status) => {
     };
     console.log('🟨 [handleEmploymentStatusResponse] Request:', requestBody);
 
-    const response = await fetch(`${ import.meta.env.VITE_API_URL}/api/specify-employment-status`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/specify-employment-status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -693,7 +758,7 @@ const handleExcludeCompanies = async () => {
     };
     console.log('🟩 [handleExcludeCompanies] Request:', requestBody);
 
-    const response = await fetch(`${ import.meta.env.VITE_API_URL}/api/exclude-companies`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/exclude-companies`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -839,7 +904,7 @@ const handleClientPerspectiveResponse = async (answer) => {
       language: userData.detectedLanguage
     };
     
-    const response = await fetch(`${ import.meta.env.VITE_API_URL}/api/client-perspective`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/client-perspective`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -944,7 +1009,7 @@ const handleSupplyChainExperience = async () => {
       language: userData.detectedLanguage
     };
 
-    const response = await fetch(`${ import.meta.env.VITE_API_URL}/api/supply-chain-experience`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/supply-chain-experience`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -984,7 +1049,7 @@ const handleSupplyChainExperienceResponse = async (answer) => {
       language: userData.detectedLanguage
     };
 
-    const response = await fetch(`${ import.meta.env.VITE_API_URL}/api/supply-chain-experience`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/supply-chain-experience`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -1076,7 +1141,7 @@ const handleEvaluationQuestions = async () => {
       language: userData.detectedLanguage
     };
 
-    const response = await fetch(`${ import.meta.env.VITE_API_URL}/api/evaluation-questions`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/evaluation-questions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -1109,7 +1174,7 @@ const handleEvaluationQuestionsResponse = async (answer) => {
       language: userData.detectedLanguage
     };
 
-    const response = await fetch(`${ import.meta.env.VITE_API_URL}/api/evaluation-questions`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/evaluation-questions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -1170,7 +1235,7 @@ const startEvaluationSections = async () => {
     };
     console.log('Initial sections request:', requestBody);
 
-    const response = await fetch(`${ import.meta.env.VITE_API_URL}/api/evaluation-questions-sections`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/evaluation-questions-sections`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -1218,6 +1283,8 @@ const startEvaluationSections = async () => {
 const handleEvaluationQuestionsSectionsResponse = async (answer) => {
   console.log('=== Processing Section Response ===');
   try {
+    // No duplicar la respuesta actual en current_questions
+    // El backend se encargará de agregar la respuesta al conjunto correcto
     const requestBody = {
       sector: phase2Data.sector,
       region: phase2Data.processed_region,
@@ -1228,47 +1295,51 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
       },
       current_category: phase3Data.evaluationSections.current,
       answer: answer,
-      current_questions: {
-        ...phase3Data.evaluationSections.questions,
-        [phase3Data.evaluationSections.current]: answer
-      },
+      current_questions: phase3Data.evaluationSections.questions,
       clientPerspective: phase3Data.clientPerspective,
       supplyChainPerspective: phase3Data.supplyChainPerspective,
-      language: userData.detectedLanguage
+      // Usar detected_language para mantener consistencia con el backend
+      detected_language: userData.detectedLanguage
     };
     
     console.log('Section response request:', requestBody);
-    console.log('Current perspectives - Client:', phase3Data.clientPerspective, 
+    console.log('Current perspectives - Client:', phase3Data.clientPerspective,
                 'Supply Chain:', phase3Data.supplyChainPerspective);
 
-                const response = await fetch(`${import.meta.env.VITE_API_URL}/api/evaluation-questions-sections`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(requestBody)
-              });
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/evaluation-questions-sections`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody)
+    });
 
     const data = await response.json();
     console.log('Section response:', data);
 
     if (data.success) {
+      // Agregar mensaje del sistema al chat
       addMessage({
         text: data.message,
         type: 'bot'
       });
 
       if (data.status === 'completed') {
+        // Actualizar el estado para reflejar que se completaron todas las preguntas
         setPhase3Data(prev => ({
           ...prev,
           evaluationSections: {
             ...prev.evaluationSections,
-            completed: Object.keys(data.screening_questions),
+            completed: true,
+            allQuestionsCompleted: true,
             questions: data.screening_questions,
             current: null,
             remaining: []
           }
         }));
+        
+        // Pasar directamente a buscar expertos sin el mensaje hardcodeado
         await searchIndustryExperts();
       } else {
+        // Actualizar el estado para la siguiente pregunta
         setPhase3Data(prev => ({
           ...prev,
           evaluationSections: {
@@ -1276,27 +1347,35 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
             current: data.current_category,
             remaining: data.remaining_categories,
             completed: data.completed_categories,
-            questions: data.current_questions,
-            selected_categories: {
-              main: true,
-              client: prev.clientPerspective,
-              supply_chain: prev.supplyChainPerspective
-            }
+            questions: data.current_questions
+            // No necesitamos redefinir selected_categories aquí
           }
         }));
       }
+    } else {
+      // Manejar respuesta de error
+      console.error('Error from API:', data.error);
+      addMessage({
+        text: data.message || 'Hubo un problema al procesar tu respuesta. Por favor intenta nuevamente.',
+        type: 'bot',
+        isError: true
+      });
     }
   } catch (error) {
     console.error('Error:', error);
+    
+    // Mensaje de error localizado según el idioma detectado
+    const errorMessage = userData.detectedLanguage && userData.detectedLanguage.startsWith('es')
+      ? 'Error al procesar tu respuesta. Por favor, intenta nuevamente.'
+      : 'Error processing your response. Please try again.';
+    
     addMessage({
-      text: 'Error al procesar tu respuesta. Por favor, intenta nuevamente.',
+      text: errorMessage,
       type: 'bot',
       isError: true
     });
   }
 };
-
-
 
 const searchIndustryExperts = async () => {
   try {
@@ -1311,7 +1390,7 @@ const searchIndustryExperts = async () => {
 
     console.log('🔍 Search Data:', requestBody);
 
-    const response = await fetch(`${ import.meta.env.VITE_API_URL}/api/industry-experts`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/industry-experts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -1454,100 +1533,164 @@ const formatExpertInfo = (expert) => {
 
 const handleExpertSelection = async (expertNames) => {
   try {
+    // Log inicial
+    console.log('=== Starting Expert Selection ===');
+    console.log('Expert Names Input:', expertNames);
+
+    // Validación y preparación de expertos seleccionados
     const selectedExperts = expertNames
       .split(',')
       .map(name => name.trim())
       .filter(name => name.length > 0);
 
+    console.log('Processed Selected Experts:', selectedExperts);
+
+    // Verificación de datos de expertos
     if (!phase3Data?.selectedExperts) {
+      console.error('No experts data available in phase3Data');
       throw new Error('No experts data available');
     }
 
+    // Log de datos de fase 3
+    console.log('Phase 3 Data:', JSON.stringify(phase3Data, null, 2));
+
+    // Preparación del cuerpo de la solicitud
     const requestBody = {
       selected_experts: selectedExperts,
       all_experts_data: {
         experts: {
-          main: { experts: phase3Data.selectedExperts.companies || [] },
-          client: { experts: phase3Data.selectedExperts.clients || [] },
-          supply_chain: { experts: phase3Data.selectedExperts.suppliers || [] }
+          main: { 
+            experts: phase3Data.selectedExperts.companies || [],
+            log: `Companies count: ${phase3Data.selectedExperts.companies?.length || 0}`
+          },
+          client: { 
+            experts: phase3Data.selectedExperts.clients || [],
+            log: `Clients count: ${phase3Data.selectedExperts.clients?.length || 0}`
+          },
+          supply_chain: { 
+            experts: phase3Data.selectedExperts.suppliers || [],
+            log: `Suppliers count: ${phase3Data.selectedExperts.suppliers?.length || 0}`
+          }
         }
       },
       evaluation_questions: phase3Data?.evaluationSections?.questions || {}
     };
 
-    console.log('Request data:', requestBody);
+    // Logs detallados de la solicitud
+    console.log('Request Body:', JSON.stringify(requestBody, null, 2));
+    console.log('Request URL:', `${import.meta.env.VITE_API_URL}/api/select-experts`);
+
+    // Realizar solicitud
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/select-experts`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
       body: JSON.stringify(requestBody)
     });
-    
 
+    // Manejo de errores de red
+    if (!response.ok) {
+      let errorDetails = '';
+      try {
+        const errorResponse = await response.json();
+        console.error('Server Error Response:', errorResponse);
+        errorDetails = errorResponse.error || errorResponse.message || '';
+      } catch {
+        errorDetails = await response.text();
+      }
+
+      throw new Error(`HTTP Error ${response.status}: ${errorDetails}`);
+    }
+
+    // Parsear respuesta
     const data = await response.json();
+    console.log('Server Response:', JSON.stringify(data, null, 2));
 
-    if (data.success) {
-      if (data.expert_details && data.expert_details.length > 0) {
-        const expert = data.expert_details[0];
-        const expertHtml = `
-          <div class="selected-expert-container">
-            <div class="expert-selection-header"></div>
-            <div class="selected-expert-card">
-              <div class="expert-main-info">
-                <h4 class="expert-name">${expert.name}</h4>
-                <span class="expert-category">${expert.category}</span>
+    // Validar respuesta
+    if (!data.success) {
+      console.error('Unsuccessful Response:', data);
+      throw new Error(data.message || 'Error selecting experts');
+    }
+
+    // Procesar detalles de expertos
+    if (data.expert_details && data.expert_details.length > 0) {
+      console.log('Expert Details Found:', data.expert_details.length);
+      const expert = data.expert_details[0];
+      
+      // Log de detalles del experto
+      console.log('Selected Expert:', JSON.stringify(expert, null, 2));
+
+      const expertHtml = `
+        <div class="selected-expert-container">
+          <div class="expert-selection-header"></div>
+          <div class="selected-expert-card">
+            <div class="expert-main-info">
+              <h4 class="expert-name">${expert.name || 'Expert Name Not Available'}</h4>
+              <span class="expert-category">${expert.category || 'N/A'}</span>
+            </div>
+            <div class="expert-info-grid">
+              <div class="info-item">
+                <span class="info-label">Current Role</span>
+                <span class="info-value">${expert.current_role || 'N/A'}</span>
               </div>
-              <div class="expert-info-grid">
-                <div class="info-item">
-                  <span class="info-label">Current Role</span>
-                  <span class="info-value">${expert.current_role}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Company</span>
-                  <span class="info-value">${expert.current_employer}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Experience</span>
-                  <span class="info-value">${expert.experience}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Location</span>
-                  <span class="info-value">${expert.location}</span>
-                </div>
+              <div class="info-item">
+                <span class="info-label">Company</span>
+                <span class="info-value">${expert.current_employer || 'N/A'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Experience</span>
+                <span class="info-value">${expert.experience || 'N/A'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Location</span>
+                <span class="info-value">${expert.location || 'N/A'}</span>
               </div>
             </div>
           </div>
-        `;
-        addMessage({ text: expertHtml, type: 'bot', isHtml: true });
-      }
+        </div>
+      `;
+      addMessage({ text: expertHtml, type: 'bot', isHtml: true });
+    } else {
+      console.warn('No expert details found in response');
+    }
 
-      if (data.screening_questions) {
-        const questionsHtml = `
-          <div class="screening-questions-container">
-            <div class="questions-header">
-              <h3>Screening Questions</h3>
-            </div>
-            <div class="questions-list">
-              ${Object.entries(data.screening_questions)
-                .map(([category, questions]) => {
-                  const categoryLabels = {
-                    main: 'MAIN COMPANIES',
-                    client: 'CLIENT COMPANIES',
-                    supply_chain: 'SUPPLY CHAIN COMPANIES'
-                  };
-                  
-                  return `
-                    <div class="question-category">
-                      <h4 class="category-title">${categoryLabels[category]}</h4>
-                      <div class="question-item">${questions}</div>
-                    </div>
-                  `;
-                }).join('')}
-            </div>
+    // Procesar preguntas de screening
+    if (data.screening_questions) {
+      console.log('Screening Questions:', JSON.stringify(data.screening_questions, null, 2));
+      
+      const questionsHtml = `
+        <div class="screening-questions-container">
+          <div class="questions-header">
+            <h3>Screening Questions</h3>
           </div>
-        `;
-        addMessage({ text: questionsHtml, type: 'bot', isHtml: true });
-      }
+          <div class="questions-list">
+            ${Object.entries(data.screening_questions)
+              .map(([category, questions]) => {
+                const categoryLabels = {
+                  main: 'MAIN COMPANIES',
+                  client: 'CLIENT COMPANIES',
+                  supply_chain: 'SUPPLY CHAIN COMPANIES'
+                };
+                
+                return `
+                  <div class="question-category">
+                    <h4 class="category-title">${categoryLabels[category] || category}</h4>
+                    <div class="question-item">${questions || 'No questions available'}</div>
+                  </div>
+                `;
+              }).join('')}
+          </div>
+        </div>
+      `;
+      addMessage({ text: questionsHtml, type: 'bot', isHtml: true });
+    } else {
+      console.warn('No screening questions found in response');
+    }
 
+    // Mensaje final
+    if (data.final_message) {
       const finalMessageHtml = `
         <div class="final-message-container">
           <div class="final-message">
@@ -1557,24 +1700,28 @@ const handleExpertSelection = async (expertNames) => {
         </div>
       `;
       addMessage({ text: finalMessageHtml, type: 'bot', isHtml: true });
-
     } else {
-      throw new Error(data.message || 'Error selecting experts');
+      console.warn('No final message found in response');
     }
 
+    console.log('=== Expert Selection Completed Successfully ===');
+
   } catch (error) {
-    console.error('Error in handleExpertSelection:', error);
+    // Manejo de errores detallado
+    console.error('Detailed Error in handleExpertSelection:', {
+      message: error.message,
+      stack: error.stack,
+      phase3Data: JSON.stringify(phase3Data, null, 2),
+      selectedExperts: expertNames
+    });
+
     addMessage({
-      text: error.message,
+      text: `Error selecting experts: ${error.message}`,
       type: 'bot',
       isError: true
     });
   }
 };
-
-
-
-
 
 
 const handleSendMessage = async (data) => {
