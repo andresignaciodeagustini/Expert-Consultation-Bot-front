@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react';
 import './Chat.css'
 import ChatInput from '../ChatInput/ChatInput'
 import ChatMessage from '../ChatMessage/ChatMessage'
@@ -40,6 +40,7 @@ function Chat() {
         supply_chain: false  // Se activa solo si hay interés en cadena de suministro
       }
     },
+    
   
     // Estados para empresas y perspectivas
     clientCompanies: [],
@@ -68,7 +69,8 @@ function Chat() {
     supplyChainUniqueCompanies: 0
   });
 
-
+  const messagesContainerRef = useRef(null);
+  
   // useEffect para sincronizar el idioma en todos los estados
   useEffect(() => {
     setPhase2Data(prev => ({
@@ -89,10 +91,32 @@ function Chat() {
     setMessages(prev => [...prev, message])
   }
 
+  // Función para hacer scroll hasta el fondo del chat
+  const scrollToBottom = () => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  };
+
+  // Ejecutar scrollToBottom cuando cambian los mensajes
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Ejecutar scrollToBottom después de un pequeño retraso para asegurar que el contenido se ha renderizado
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollToBottom();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [messages]);
+
 // Nuevo useEffect para el mensaje de bienvenida (reemplaza los dos existentes)
 useEffect(() => {
   const fetchWelcomeMessage = async () => {
     try {
+      console.log('VITE_API_URL Value:', import.meta.env.VITE_API_URL); // Log para ver el valor
       console.log('Fetching welcome message from:', import.meta.env.VITE_API_URL);
       
       const response = await fetchWithRetry(`${import.meta.env.VITE_API_URL}/api/welcome-message`, {
@@ -169,8 +193,6 @@ useEffect(() => {
 }, []);
 
 
-
-
 const handleEmailCapture = async (email) => {
   try {
     console.log('Capturando email:', email);
@@ -198,6 +220,11 @@ const handleEmailCapture = async (email) => {
       
       console.log('Cambiando paso a name');
       setCurrentStep('name')
+    } else {
+      // Manejar el error cuando el email no es válido
+      console.log('Email inválido o error:', data.error);
+      addMessage({ text: data.error, type: 'bot' })
+      // No cambiamos el currentStep, seguimos en 'email'
     }
   } catch (error) {
     console.error('Error procesando email:', error)
@@ -208,7 +235,6 @@ const handleEmailCapture = async (email) => {
     })
   }
 }
-
 const handleNameCapture = async (name) => {
   try {
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/name/capture`, {
@@ -220,26 +246,7 @@ const handleNameCapture = async (name) => {
       })
     });
 
-    // Obtener el texto del error si la respuesta no es exitosa
-    if (!response.ok) {
-      // Intentar obtener el texto del error
-      const errorText = await response.text();
-      console.error('Full error response:', errorText);
-      
-      // Si es posible, intentar parsear como JSON
-      let errorData;
-      try {
-        errorData = JSON.parse(errorText);
-        console.error('Parsed error data:', errorData);
-      } catch (parseError) {
-        console.error('Could not parse error response as JSON:', parseError);
-      }
-
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-    }
-
     const data = await response.json();
-    
     console.log('Name capture full response:', data);
 
     if (data.success) {
@@ -255,12 +262,26 @@ const handleNameCapture = async (name) => {
       });
       setCurrentStep('expert_connection');
     } else {
-      throw new Error(data.error || 'Error processing name');
+      // Manejar la respuesta de error del backend
+      addMessage({ 
+        text: data.message || data.error || 'Error processing name', 
+        type: data.type || 'bot', 
+        isError: true,
+        error_type: data.error_type,
+        detected_language: data.detected_language
+      });
+      
+      // Si hay un tipo de error específico, podemos manejarlo de forma diferente
+      if (data.error_type === 'invalid_name_format') {
+        console.warn('Invalid name format detected');
+        // Aquí podrías agregar lógica adicional específica para este tipo de error
+        // Por ejemplo, resaltar el campo de entrada, mostrar un tooltip, etc.
+      }
     }
   } catch (error) {
     console.error('Detailed error processing name:', error);
     
-    // Mostrar mensaje de error más detallado
+    // Mostrar mensaje de error para problemas de conexión o excepciones no manejadas
     addMessage({ 
       text: `Error: ${error.message}`, 
       type: 'bot', 
@@ -268,7 +289,10 @@ const handleNameCapture = async (name) => {
     });
   }
 };
-  
+
+
+
+
 const handleExpertConnection = async (answer) => {
   try {
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/expert-connection/ask`, {
@@ -280,41 +304,57 @@ const handleExpertConnection = async (answer) => {
         detected_language: userData.detectedLanguage,
         previous_step: 'ask_expert_connection'
       })
-    })
-      const data = await response.json()
-      
-      if (data.success) {
-        addMessage({ 
-          text: data.message, 
-          type: 'bot',
-          options: data.options 
-        })
-        
-        if (data.step === 'select_sector') {
-          setCurrentPhase(2)
-          setCurrentStep('sector_selection')
-        } else if (answer.toLowerCase() === 'yes') {
-          setCurrentPhase(2)
-          setCurrentStep('sector')
-        } else {
-          setCurrentStep('complete')
-        }
-      }
-    } catch (error) {
-      console.error('Error in expert connection:', error)
-      addMessage({ 
-        text: `Error: ${error.message}`, 
-        type: 'bot', 
-        isError: true 
-      })
+    });
+
+    const data = await response.json();
+    console.log('Expert connection response:', data);
+    
+    // Actualizar el idioma detectado si está disponible
+    if (data.detected_language) {
+      setUserData(prev => ({ 
+        ...prev, 
+        detectedLanguage: data.detected_language 
+      }));
     }
+    
+    // Agregar la respuesta al chat (tanto para éxito como para error)
+    addMessage({ 
+      text: data.message || data.error, 
+      type: data.type || 'bot',
+      options: data.options,
+      isError: data.isError || false,
+      detected_language: data.detected_language
+    });
+    
+    if (data.success) {
+      // Manejar diferentes pasos según la respuesta exitosa
+      if (data.step === 'select_sector') {
+        setCurrentPhase(2);
+        setCurrentStep('sector_selection');
+      } else if (data.step === 'farewell') {
+        setCurrentStep('complete');
+      } else if (data.step === 'clarify') {
+        // Mantener el mismo paso para que el usuario pueda intentar nuevamente
+        // No cambiamos el paso actual
+      }
+    } else {
+      // Manejar respuesta de error
+      if (data.error_type === 'invalid_response_format' || data.error_type === 'unclear_intention') {
+        console.warn(`Invalid response detected: ${data.error_type}`);
+        // Mostrar opciones nuevamente - ya están incluidas en el mensaje
+        // No cambiamos el paso actual para permitir otro intento
+      }
+    }
+  } catch (error) {
+    console.error('Error in expert connection:', error);
+    addMessage({ 
+      text: `Error: ${error.message}`, 
+      type: 'bot', 
+      isError: true 
+    });
   }
-
-
+};
 ///////////////////////////////////////////////////////////////////////////////////////adfgsdfg
-
-
-
 
 
 
@@ -323,59 +363,148 @@ const handleExpertConnection = async (answer) => {
 
 const handleSectorSelection = async (sector) => {
   try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/sector-experience`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-              sector,
-              name: userData.name,
-              language: userData.detectedLanguage
-          })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-          setPhase2Data(prev => ({ ...prev, sector }));
-          addMessage({ 
-              text: data.message, 
-              type: 'bot',
-              options: data.options 
-          });
-          
-          // Cambiar según el next_step
-          if (data.next_step === 'specific_area_inquiry') {
-              setCurrentStep('specific_area');
-          } else if (data.next_step === 'region') {
-              setCurrentStep('region');
-          }
-      }
-  } catch (error) {
-      console.error('Error handling sector selection:', error);
-      addMessage({ 
-          text: `Error: ${error.message}`, 
-          type: 'bot', 
-          isError: true 
-      });
-  }
-};
-
-const handleSpecificAreaSelection = async (specificArea) => {
-  try {
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/sector-experience`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sector: phase2Data.sector,
-        specific_area: specificArea,
+        sector,
         name: userData.name,
         language: userData.detectedLanguage
       })
     });
     
     const data = await response.json();
+    console.log('Sector selection response:', data);
+    
+    // Actualizar el idioma detectado si está disponible
+    if (data.detected_language) {
+      setUserData(prev => ({ 
+        ...prev, 
+        detectedLanguage: data.detected_language 
+      }));
+    }
     
     if (data.success) {
+      // Guardar el sector seleccionado
+      setPhase2Data(prev => ({ ...prev, sector }));
+      
+      // Añadir mensaje de respuesta
+      addMessage({ 
+        text: data.message, 
+        type: data.type || 'bot',
+        options: data.options 
+      });
+      
+      // Cambiar según el next_step
+      if (data.next_step === 'specific_area_inquiry') {
+        setCurrentStep('specific_area');
+      } else if (data.next_step === 'region_inquiry') {
+        setCurrentStep('region');
+      }
+    } else {
+      // Manejar error - el sector no es válido
+      addMessage({ 
+        text: data.message || data.error, 
+        type: data.type || 'bot',
+        isError: data.isError || true
+      });
+      
+      // Si es un error específico, podemos manejarlo de forma diferente
+      if (data.error_type === 'invalid_sector_format' || data.error_type === 'invalid_sector') {
+        console.warn(`Invalid sector detected: ${data.error_type}`);
+        // Mantener el mismo paso para permitir otro intento
+        // No hacemos cambio de estado del paso actual
+      }
+    }
+  } catch (error) {
+    console.error('Error handling sector selection:', error);
+    addMessage({ 
+      text: `Error: ${error.message}`, 
+      type: 'bot', 
+      isError: true 
+    });
+  }
+};
+
+
+
+const handleSpecificAreaSelection = async (specificArea) => {
+  try {
+    // Logs para verificar los valores antes de la solicitud
+    console.log('=== DEBUG INFO: handleSpecificAreaSelection ===');
+    console.log('specificArea:', specificArea);
+    console.log('phase2Data:', phase2Data);
+    console.log('phase2Data.sector:', phase2Data?.sector);
+    console.log('userData:', userData);
+    console.log('userData.name:', userData?.name);
+    console.log('userData.detectedLanguage:', userData?.detectedLanguage);
+    
+    // Crear el objeto de datos para enviar
+    const requestData = {
+      sector: phase2Data?.sector,
+      specific_area: specificArea,
+      name: userData?.name,
+      language: userData?.detectedLanguage
+    };
+    
+    console.log('API URL:', `${import.meta.env.VITE_API_URL}/api/sector-experience`);
+    console.log('Request data:', JSON.stringify(requestData, null, 2));
+    
+    // Verificar que todos los datos necesarios existen
+    if (!requestData.sector) {
+      console.error('ERROR: Missing sector in request data');
+    }
+    
+    if (!requestData.name) {
+      console.error('ERROR: Missing name in request data');
+    }
+    
+    // Realizar la solicitud
+    console.log('Sending API request...');
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/sector-experience`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestData)
+    });
+    
+    console.log('Response status:', response.status);
+    console.log('Response OK:', response.ok);
+    
+    // Intentar obtener la respuesta como JSON incluso si el status no es OK
+    let data;
+    try {
+      const responseText = await response.text();
+      console.log('Response text:', responseText);
+      data = JSON.parse(responseText);
+      console.log('Parsed JSON data:', data);
+    } catch (parseError) {
+      console.error('Error parsing response:', parseError);
+      throw new Error('Could not parse server response');
+    }
+    
+    // Si es un error de validación (código 400 con estructura específica)
+    if (!response.ok && data && (data.error_type === "invalid_specific_area" || data.error_type === "invalid_sector")) {
+      console.log('Validation error from server:', data);
+      
+      // Mostrar el mensaje de error como un mensaje normal del bot
+      addMessage({ 
+        text: data.message, 
+        type: 'bot',
+        isError: true 
+      });
+      
+      return; // Salir de la función sin lanzar un error
+    }
+    
+    // Si es otro tipo de error (no de validación)
+    if (!response.ok) {
+      console.error('Server error:', data);
+      throw new Error('Server error: ' + (data.message || 'Unknown error'));
+    }
+    
+    // Procesar respuesta exitosa
+    if (data.success) {
+      console.log('Request successful, updating state...');
       setPhase2Data(prev => ({ 
         ...prev, 
         specific_area: specificArea 
@@ -388,135 +517,172 @@ const handleSpecificAreaSelection = async (specificArea) => {
       });
       
       // Cambiar al siguiente paso
+      console.log('Changing step to region');
       setCurrentStep('region');
+    } else {
+      console.error('Request not successful:', data);
+      // Manejar el caso en que data.success es false
+      addMessage({ 
+        text: data.message || 'An error occurred with your request.', 
+        type: 'bot',
+        isError: true 
+      });
     }
   } catch (error) {
     console.error('Error handling specific area selection:', error);
+    console.error('Error stack:', error.stack);
     addMessage({ 
-      text: `Error: ${error.message}`, 
+      text: `Sorry, there was a problem processing your request. Please try again.`, 
       type: 'bot', 
       isError: true 
     });
   }
 };
 
-  const handleRegionInput = async (region) => {
-    try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/test/process-text`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                text: region,
-                language: userData.detectedLanguage,
-                name: userData.name
-            })
-        });
 
-        const data = await response.json();
+const handleRegionInput = async (region) => {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/test/process-text`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: region,
+        language: userData.detectedLanguage,
+        name: userData.name
+      })
+    });
 
-        if (data.success) {
-            setPhase2Data(prev => ({ ...prev, processed_region: data.processed_region }));
-            addMessage({ 
-                text: data.next_question, 
-                type: 'bot',
-                options: data.options 
-            });
-            setCurrentStep('companies');
-        }
-    } catch (error) {
-        console.error('Error processing region:', error);
-        addMessage({ 
-            text: `Error: ${error.message}`, 
-            type: 'bot', 
-            isError: true 
-        });
+    const data = await response.json();
+
+    if (data.success) {
+      setPhase2Data(prev => ({ ...prev, processed_region: data.processed_region }));
+      addMessage({ 
+        text: data.next_question, 
+        type: 'bot',
+        options: data.options 
+      });
+      setCurrentStep('companies');
+    } else {
+      // Mostrar solo el mensaje de error explicativo
+      addMessage({ 
+        text: data.error || "Please provide a valid region.", 
+        type: 'bot', 
+        isError: true 
+      });
+      
+      // Mantener el paso actual para que el usuario pueda volver a intentarlo
+      setCurrentStep('region');
     }
-  };
-
-
-
-
-  const handleCompaniesInput = async (companies) => {
-    try {
-        // Convertir a minúsculas para comparación consistente
-        const normalizedCompanies = companies.toLowerCase().trim();
-
-        // Si la respuesta es 'no', ir directamente a sugerencias de empresas
-        if (normalizedCompanies === 'no') {
-            await handleCompanySuggestions();
-            return;
-        }
-
-        // Realizar la solicitud al backend
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/simple-expert-connection`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json' 
-            },
-            body: JSON.stringify({
-                text: companies,  // Usar el texto original
-                language: userData.detectedLanguage || 'en'
-            })
-        });
-
-        // Manejar errores de respuesta HTTP
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Error processing companies');
-        }
-
-        // Parsear la respuesta
-        const data = await response.json();
-
-        // Verificar si la respuesta es exitosa
-        if (data.success) {
-            // Determinar si está interesado en empresas
-            const isInterested = normalizedCompanies !== 'no';
-
-            // Actualizar datos de la fase 2
-            setPhase2Data(prev => ({ 
-                ...prev, 
-                companies: data.preselected_companies || [],
-                interested_in_companies: isInterested,
-                isCompleted: true
-            }));
-
-            // Añadir mensaje del bot
-            addMessage({ 
-                text: data.message, 
-                type: 'bot',
-                options: data.options 
-            });
-
-            // Si está interesado, actualizar datos de la fase 3
-            if (isInterested) {
-                setPhase3Data(prev => ({
-                    ...prev,
-                    companiesForExpertSearch: data.preselected_companies || [],
-                    currentExpertStep: 'initial'
-                }));
-            }
-
-            // Proceder con sugerencias de empresas
-            await handleCompanySuggestions();
-        } else {
-            // Manejar caso de respuesta no exitosa
-            throw new Error(data.error || 'Unknown error processing companies');
-        }
-    } catch (error) {
-        console.error('Error processing companies:', error);
-        
-        // Añadir mensaje de error
-        addMessage({
-            text: `Error: ${error.message}`,
-            type: 'bot',
-            isError: true
-        });
-
-        // Opcional: manejar el error de manera más específica
-        // Por ejemplo, reintentar, mostrar un mensaje específico, etc.
-    }
+  } catch (error) {
+    console.error('Error processing region:', error);
+    addMessage({ 
+      text: `Error: ${error.message}`, 
+      type: 'bot', 
+      isError: true 
+    });
+    
+    // También mantener el paso actual en caso de error de red
+    setCurrentStep('region');
+  }
 };
+
+
+
+
+const handleCompaniesInput = async (companies) => {
+  try {
+      // Convertir a minúsculas para comparación consistente
+      const normalizedCompanies = companies.toLowerCase().trim();
+
+      // Si la respuesta es 'no', ir directamente a sugerencias de empresas
+      if (normalizedCompanies === 'no') {
+          await handleCompanySuggestions();
+          return;
+      }
+
+      // Realizar la solicitud al backend
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/simple-expert-connection`, {
+          method: 'POST',
+          headers: { 
+              'Content-Type': 'application/json' 
+          },
+          body: JSON.stringify({
+              text: companies,  // Usar el texto original
+              language: userData.detectedLanguage || 'en'
+          })
+      });
+
+      // Manejar errores de respuesta HTTP
+      if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error processing companies');
+      }
+
+      // Parsear la respuesta
+      const data = await response.json();
+
+      // Verificar si se necesita clarificación
+      if (data.needs_clarification) {
+          // Mostrar mensaje solicitando clarificación y posiblemente permitir nueva entrada
+          addMessage({ 
+              text: data.message, 
+              type: 'bot',
+              requiresInput: true // Si tienes un flag para solicitar entrada adicional
+          });
+          return; // No proceder a handleCompanySuggestions aún
+      }
+
+      // Verificar si la respuesta es exitosa
+      if (data.success) {
+          // Determinar si está interesado en empresas
+          const isInterested = normalizedCompanies !== 'no';
+
+          // Actualizar datos de la fase 2
+          setPhase2Data(prev => ({ 
+              ...prev, 
+              companies: data.preselected_companies || [],
+              interested_in_companies: isInterested,
+              isCompleted: true
+          }));
+
+          // Añadir mensaje del bot
+          addMessage({ 
+              text: data.message, 
+              type: 'bot',
+              options: data.options 
+          });
+
+          // Si está interesado, actualizar datos de la fase 3
+          if (isInterested) {
+              setPhase3Data(prev => ({
+                  ...prev,
+                  companiesForExpertSearch: data.preselected_companies || [],
+                  currentExpertStep: 'initial'
+              }));
+          }
+
+          // Proceder con sugerencias de empresas
+          await handleCompanySuggestions();
+      } else {
+          // Manejar caso de respuesta no exitosa
+          throw new Error(data.error || 'Unknown error processing companies');
+      }
+  } catch (error) {
+      console.error('Error processing companies:', error);
+      
+      // Añadir mensaje de error
+      addMessage({
+          text: `Error: ${error.message}`,
+          type: 'bot',
+          isError: true
+      });
+
+      // Opcional: manejar el error de manera más específica
+      // Por ejemplo, reintentar, mostrar un mensaje específico, etc.
+  }
+};
+
+
 
 const handleCompanySuggestions = async () => {
   try {
@@ -592,6 +758,10 @@ const handleCompanySuggestions = async () => {
     setLoading(false);
   }
 };
+
+
+
+
 const handleCompanyAgreement = async (userMessage) => {
   try {
     setLoading(true);
@@ -634,7 +804,7 @@ const handleCompanyAgreement = async (userMessage) => {
       }
     } else {
       addMessage({
-        text: data.message || 'Error processing your response. Please try again.',
+        text: data.error || 'Error processing your response. Please try again.',
         type: 'bot',
         isError: true
       });
@@ -654,14 +824,12 @@ const handleCompanyAgreement = async (userMessage) => {
 
 
 
-
 /////////////////////////////////////FASE3/////////////////////////////////////////////////////
 
 
 
 
-
-
+// Corrección para handleEmploymentStatus
 const handleEmploymentStatus = async () => {
   console.log('🟦 [handleEmploymentStatus] Iniciando');
   try {
@@ -677,17 +845,24 @@ const handleEmploymentStatus = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
     });
-
+    
     const data = await response.json();
     console.log('🟦 [handleEmploymentStatus] Respuesta:', data);
-
+    
+    // Agregar mensaje al chat sin importar si fue exitoso o no
+    addMessage({
+      text: data.message,
+      type: 'bot',
+      isError: !data.success
+    });
+    
     if (data.success) {
-      addMessage({
-        text: data.message,
-        type: 'bot'
-      });
       setCurrentStep('employment_status');
       console.log('🟦 [handleEmploymentStatus] Step actualizado a: employment_status');
+    } else {
+      console.log('🟦 [handleEmploymentStatus] Respuesta no exitosa:', data);
+      // Si hay un error de nonsense input, permitir al usuario intentar de nuevo
+      // No avanzar al siguiente paso
     }
   } catch (error) {
     console.error('🔴 [handleEmploymentStatus] Error:', error);
@@ -702,26 +877,34 @@ const handleEmploymentStatus = async () => {
   }
 };
 
+// Corrección para handleEmploymentStatusResponse
 const handleEmploymentStatusResponse = async (status) => {
   console.log('🟨 [handleEmploymentStatusResponse] Iniciando con status:', status);
   try {
     setLoading(true);
-
+    
     const requestBody = {
       status: status,
       language: userData.detectedLanguage
     };
     console.log('🟨 [handleEmploymentStatusResponse] Request:', requestBody);
-
+    
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/specify-employment-status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
     });
-
+    
     const data = await response.json();
     console.log('🟨 [handleEmploymentStatusResponse] Respuesta:', data);
-
+    
+    // Siempre mostrar el mensaje, independientemente del éxito
+    addMessage({
+      text: data.message,
+      type: 'bot',
+      isError: !data.success
+    });
+    
     if (data.success) {
       console.log('🟨 [handleEmploymentStatusResponse] Actualizando phase3Data con:', data.employment_status);
       setPhase3Data(prev => ({
@@ -729,13 +912,11 @@ const handleEmploymentStatusResponse = async (status) => {
         employmentStatus: data.employment_status
       }));
       
-      addMessage({
-        text: data.message,
-        type: 'bot'
-      });
-      
       console.log('🟨 [handleEmploymentStatusResponse] Iniciando timeout para handleExcludeCompanies');
       setTimeout(handleExcludeCompanies, 1000);
+    } else {
+      console.log('🟨 [handleEmploymentStatusResponse] Respuesta no exitosa:', data);
+      // No avanzar al siguiente paso si hay un error
     }
   } catch (error) {
     console.error('🔴 [handleEmploymentStatusResponse] Error:', error);
@@ -750,9 +931,16 @@ const handleEmploymentStatusResponse = async (status) => {
   }
 };
 
+
+
+
+// Corrección para handleExcludeCompanies
+// Corrección para handleExcludeCompanies
 const handleExcludeCompanies = async () => {
   console.log('🟩 [handleExcludeCompanies] Iniciando');
   try {
+    setLoading(true); // Asumiendo que existe esta función
+    
     const requestBody = {
       language: userData.detectedLanguage
     };
@@ -767,13 +955,19 @@ const handleExcludeCompanies = async () => {
     const data = await response.json();
     console.log('🟩 [handleExcludeCompanies] Respuesta:', data);
 
+    // Siempre mostrar el mensaje, sin importar si fue exitoso o no
+    addMessage({
+      text: data.message,
+      type: 'bot',
+      isError: !data.success
+    });
+
     if (data.success) {
-      addMessage({
-        text: data.message,
-        type: 'bot'
-      });
       setCurrentStep('exclude_companies');
       console.log('🟩 [handleExcludeCompanies] Step actualizado a: exclude_companies');
+    } else {
+      console.log('🟩 [handleExcludeCompanies] Respuesta no exitosa:', data);
+      // No avanzar al siguiente paso si hay un error
     }
   } catch (error) {
     console.error('🔴 [handleExcludeCompanies] Error:', error);
@@ -783,21 +977,30 @@ const handleExcludeCompanies = async () => {
       isError: true
     });
   } finally {
+    setLoading(false); // Asumiendo que existe esta función
     console.log('🟩 [handleExcludeCompanies] Finalizado');
   }
 };
 
-
-
-
+// Actualización para handleExcludeCompaniesResponse con manejo especial para "no"
 const handleExcludeCompaniesResponse = async (answer) => {
   console.log('🔍 Estado actual antes de excluir compañías:', phase3Data);
   console.log('📥 Compañías a excluir:', answer);
+  
+  // Verificar si la respuesta es "no" o alguna variante
+  const isNoResponse = answer.toLowerCase().trim() === 'no' || 
+                       answer.toLowerCase().trim() === 'n' ||
+                       answer.toLowerCase().trim() === 'nope' ||
+                       answer.toLowerCase().trim() === 'no.' ||
+                       answer.toLowerCase().trim() === 'noo';
+  
   try {
+    setLoading(true); // Asumiendo que existe esta función
+    
     const requestBody = {
       answer: answer,
       language: userData.detectedLanguage,
-      excluded_companies: answer.toLowerCase() === 'no' ? [] : answer.split(',').map(company => company.trim())
+      excluded_companies: isNoResponse ? [] : answer.split(',').map(company => company.trim())
     };
     console.log('📤 Enviando solicitud a exclude-companies:', requestBody);
 
@@ -807,12 +1010,15 @@ const handleExcludeCompaniesResponse = async (answer) => {
       body: JSON.stringify(requestBody)
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
     const data = await response.json();
     console.log('📥 Respuesta recibida de exclude-companies:', data);
+
+    // Siempre mostrar el mensaje al usuario
+    addMessage({
+      text: data.message,
+      type: 'bot',
+      isError: !data.success
+    });
 
     if (data.success) {
       // Actualizar estado de manera síncrona
@@ -828,33 +1034,94 @@ const handleExcludeCompaniesResponse = async (answer) => {
         });
       });
 
-      addMessage({
-        text: data.message,
-        type: 'bot'
-      });
-
       // Esperar un momento antes de continuar
       await new Promise(resolve => setTimeout(resolve, 1000));
       await handleClientPerspective();
+    } else if (isNoResponse) {
+      // Si la respuesta es "no" pero hubo un error, continuamos de todos modos
+      console.log('🟡 [handleExcludeCompaniesResponse] Respuesta "no" detectada pero el backend devolvió error.');
+      console.log('🟡 [handleExcludeCompaniesResponse] Continuando al siguiente paso de todos modos.');
+      
+      // Actualizar estado asumiendo que no hay empresas excluidas
+      await new Promise(resolve => {
+        setPhase3Data(prev => {
+          const newState = {
+            ...prev,
+            excludedCompanies: []
+          };
+          console.log('✅ Nuevo estado de phase3Data con respuesta "no" manual:', newState);
+          resolve();
+          return newState;
+        });
+      });
+      
+      // Esperar un momento antes de continuar
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Mensaje adicional para confirmar que no se excluirán empresas
+      addMessage({
+        text: "Entendido, no se excluirán empresas de la búsqueda.",
+        type: 'bot'
+      });
+      
+      await handleClientPerspective();
+    } else {
+      console.log('❌ Respuesta no exitosa en exclude-companies:', data);
+      // No avanzar al siguiente paso si hay un error y no es "no"
     }
   } catch (error) {
     console.error('❌ Error en handleExcludeCompaniesResponse:', error);
-    addMessage({
-      text: 'Error processing your request. Please try again.',
-      type: 'bot',
-      isError: true
-    });
+    
+    // Si hay un error pero la respuesta fue "no", continuar de todos modos
+    if (isNoResponse) {
+      console.log('🟡 [handleExcludeCompaniesResponse] Error, pero la respuesta fue "no". Continuando...');
+      
+      // Actualizar estado asumiendo que no hay empresas excluidas
+      await new Promise(resolve => {
+        setPhase3Data(prev => {
+          const newState = {
+            ...prev,
+            excludedCompanies: []
+          };
+          resolve();
+          return newState;
+        });
+      });
+      
+      // Mensaje para confirmar que no se excluirán empresas
+      addMessage({
+        text: "Entendido, no se excluirán empresas de la búsqueda.",
+        type: 'bot'
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await handleClientPerspective();
+    } else {
+      addMessage({
+        text: 'Error al procesar tu respuesta. Por favor, intenta nuevamente.',
+        type: 'bot',
+        isError: true
+      });
+    }
+  } finally {
+    setLoading(false); // Asumiendo que existe esta función
   }
 };
 
 
 
 
-/////////////////////////////////////CLIENT PERSPECTIVE
 
+
+
+
+
+/////////////////////////// Corrección para handleClientPerspective
 const handleClientPerspective = async () => {
   console.log('🚀 Iniciando handleClientPerspective');
   try {
+    setLoading(true); // Asumiendo que existe esta función
+    
     const requestBody = {
       answer: '',
       language: userData.detectedLanguage,
@@ -868,19 +1135,22 @@ const handleClientPerspective = async () => {
       body: JSON.stringify(requestBody)
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
     const data = await response.json();
     console.log('📥 Respuesta recibida de client-perspective:', data);
 
+    // Siempre mostrar el mensaje al usuario
+    addMessage({
+      text: data.message,
+      type: 'bot',
+      isError: !data.success
+    });
+
     if (data.success) {
-      addMessage({
-        text: data.message,
-        type: 'bot'
-      });
       setCurrentStep('client_perspective');
+      console.log('🚀 Step actualizado a: client_perspective');
+    } else {
+      console.log('🔴 Respuesta no exitosa en client-perspective:', data);
+      // No avanzar al siguiente paso si hay un error
     }
   } catch (error) {
     console.error('❌ Error en handleClientPerspective:', error);
@@ -889,14 +1159,17 @@ const handleClientPerspective = async () => {
       type: 'bot',
       isError: true
     });
+  } finally {
+    setLoading(false); // Asumiendo que existe esta función
   }
 };
 
-
-
+// Corrección para handleClientPerspectiveResponse
 const handleClientPerspectiveResponse = async (answer) => {
   console.log('🔍 Estado actual antes de client perspective:', phase3Data);
   try {
+    setLoading(true); // Asumiendo que existe esta función
+    
     const requestBody = {
       answer: answer,
       sector: phase3Data.sector,
@@ -910,20 +1183,17 @@ const handleClientPerspectiveResponse = async (answer) => {
       body: JSON.stringify(requestBody)
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
     const data = await response.json();
     console.log('📥 Respuesta recibida de client-perspective:', data);
 
-    if (data.success) {
-      // Mensaje principal
-      addMessage({
-        text: data.message,
-        type: 'bot'
-      });
+    // Siempre mostrar el mensaje principal, sin importar si fue exitoso o no
+    addMessage({
+      text: data.message,
+      type: 'bot',
+      isError: !data.success
+    });
 
+    if (data.success) {
       // Determinar si la respuesta es afirmativa
       const isClientInterested = answer.toLowerCase() === 'yes' || 
                                answer.toLowerCase() === 'sí' || 
@@ -971,6 +1241,9 @@ const handleClientPerspectiveResponse = async (answer) => {
       // Continuar con supply chain
       await new Promise(resolve => setTimeout(resolve, 1000));
       await handleSupplyChainExperience();
+    } else {
+      console.log('🔴 Respuesta no exitosa en client-perspective-response:', data);
+      // No continuar con el siguiente paso
     }
   } catch (error) {
     console.error('❌ Error en handleClientPerspectiveResponse:', error);
@@ -979,6 +1252,8 @@ const handleClientPerspectiveResponse = async (answer) => {
       type: 'bot',
       isError: true
     });
+  } finally {
+    setLoading(false); // Asumiendo que existe esta función
   }
 };
 
@@ -994,16 +1269,12 @@ const handleClientPerspectiveResponse = async (answer) => {
 
 
 
-
-
-
-
-
-
-
+// Corrección para handleSupplyChainExperience
 const handleSupplyChainExperience = async () => {
   console.log('Iniciando handleSupplyChainExperience');
   try {
+    setLoading(true); // Asumiendo que existe esta función
+    
     const requestBody = {
       answer: '',
       language: userData.detectedLanguage
@@ -1018,14 +1289,18 @@ const handleSupplyChainExperience = async () => {
     const data = await response.json();
     console.log('Respuesta recibida de supply-chain-experience:', data);
 
+    // Siempre mostrar el mensaje al usuario, sin importar si fue exitoso o no
+    addMessage({
+      text: data.message,
+      type: 'bot',
+      isError: !data.success
+    });
+
     if (data.success) {
-      addMessage({
-        text: data.message,
-        type: 'bot'
-      });
       setCurrentStep('supply_chain_experience');
     } else {
-      throw new Error(data.message || 'Error en la solicitud de supply chain experience');
+      console.log('Respuesta no exitosa en supply-chain-experience:', data);
+      // No avanzar al siguiente paso si hay un error
     }
   } catch (error) {
     console.error('Error en handleSupplyChainExperience:', error);
@@ -1034,14 +1309,17 @@ const handleSupplyChainExperience = async () => {
       type: 'bot',
       isError: true
     });
+  } finally {
+    setLoading(false); // Asumiendo que existe esta función
   }
 };
 
-
-
+// Corrección para handleSupplyChainExperienceResponse
 const handleSupplyChainExperienceResponse = async (answer) => {
   console.log('🔍 Estado actual antes de supply chain:', phase3Data);
   try {
+    setLoading(true); // Asumiendo que existe esta función
+    
     const requestBody = {
       answer: answer,
       sector: phase3Data.sector,
@@ -1055,20 +1333,17 @@ const handleSupplyChainExperienceResponse = async (answer) => {
       body: JSON.stringify(requestBody)
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
     const data = await response.json();
     console.log('📥 Respuesta recibida del servidor:', data);
 
-    if (data.success) {
-      // Mensaje principal
-      addMessage({
-        text: data.message,
-        type: 'bot'
-      });
+    // Siempre mostrar el mensaje principal
+    addMessage({
+      text: data.message,
+      type: 'bot',
+      isError: !data.success
+    });
 
+    if (data.success) {
       // Determinar si la respuesta es afirmativa
       const isSupplyChainInterested = answer.toLowerCase() === 'yes' || 
                                     answer.toLowerCase() === 'sí' || 
@@ -1116,6 +1391,9 @@ const handleSupplyChainExperienceResponse = async (answer) => {
       // Continuar con las preguntas de evaluación
       await new Promise(resolve => setTimeout(resolve, 1000));
       await handleEvaluationQuestions();
+    } else {
+      console.log('Respuesta no exitosa en handleSupplyChainExperienceResponse:', data);
+      // No avanzar al siguiente paso si hay un error
     }
   } catch (error) {
     console.error('❌ Error en handleSupplyChainExperienceResponse:', error);
@@ -1124,16 +1402,17 @@ const handleSupplyChainExperienceResponse = async (answer) => {
       type: 'bot',
       isError: true
     });
+  } finally {
+    setLoading(false); // Asumiendo que existe esta función
   }
 };
 
-
-
 //////////////////////////////////////////////////////////EVALUATION QUESTION
 
-
+// Corrección para handleEvaluationQuestions
 const handleEvaluationQuestions = async () => {
   try {
+    setLoading(true); // Asumiendo que existe esta función
     setCurrentPhase(3);
     
     const requestBody = {
@@ -1148,13 +1427,20 @@ const handleEvaluationQuestions = async () => {
     });
 
     const data = await response.json();
+    console.log('Response received:', data);
+
+    // Siempre mostrar el mensaje al usuario
+    addMessage({
+      text: data.message || data.error, // Usar error si no hay mensaje
+      type: 'bot',
+      isError: !data.success
+    });
 
     if (data.success) {
-      addMessage({
-        text: data.message,
-        type: 'bot'
-      });
       setCurrentStep('evaluation_questions');
+    } else {
+      console.log('Respuesta no exitosa en handleEvaluationQuestions:', data);
+      // No avanzar al siguiente paso si hay un error
     }
   } catch (error) {
     console.error('Error:', error);
@@ -1163,12 +1449,16 @@ const handleEvaluationQuestions = async () => {
       type: 'bot',
       isError: true
     });
+  } finally {
+    setLoading(false); // Asumiendo que existe esta función
   }
 };
 
-
+// Corrección para handleEvaluationQuestionsResponse
 const handleEvaluationQuestionsResponse = async (answer) => {
   try {
+    setLoading(true); // Asumiendo que existe esta función
+    
     const requestBody = {
       answer: answer,
       language: userData.detectedLanguage
@@ -1183,12 +1473,14 @@ const handleEvaluationQuestionsResponse = async (answer) => {
     const data = await response.json();
     console.log('Response received:', data);
 
-    if (data.success) {
-      addMessage({
-        text: data.message,
-        type: 'bot'
-      });
+    // Siempre mostrar el mensaje al usuario
+    addMessage({
+      text: data.message || data.error, // Usar error si no hay mensaje
+      type: 'bot',
+      isError: !data.success
+    });
 
+    if (data.success) {
       if (data.evaluation_required && data.answer_received === 'yes') {
         setPhase3Data(prev => ({
           ...prev,
@@ -1201,6 +1493,9 @@ const handleEvaluationQuestionsResponse = async (answer) => {
         // Si la respuesta es no, continuar con la búsqueda
         await searchIndustryExperts();
       }
+    } else {
+      console.log('Respuesta no exitosa en handleEvaluationQuestionsResponse:', data);
+      // No avanzar al siguiente paso si hay un error
     }
   } catch (error) {
     console.error('Error:', error);
@@ -1209,12 +1504,9 @@ const handleEvaluationQuestionsResponse = async (answer) => {
       type: 'bot',
       isError: true
     });
+  } finally {
+    setLoading(false); // Asumiendo que existe esta función
   }
-
-
-
-
-
 };
 
 
@@ -1530,7 +1822,6 @@ const formatExpertInfo = (expert) => {
     </div>
   `;
 };
-
 const handleExpertSelection = async (expertNames) => {
   try {
     // Log inicial
@@ -1592,16 +1883,18 @@ const handleExpertSelection = async (expertNames) => {
 
     // Manejo de errores de red
     if (!response.ok) {
-      let errorDetails = '';
+      let errorMessage = '';
       try {
         const errorResponse = await response.json();
         console.error('Server Error Response:', errorResponse);
-        errorDetails = errorResponse.error || errorResponse.message || '';
+        // Solo extraer el mensaje de error, sin los detalles técnicos
+        errorMessage = errorResponse.message || 'Error selecting experts';
       } catch {
-        errorDetails = await response.text();
+        errorMessage = 'Error connecting to the server. Please try again.';
       }
 
-      throw new Error(`HTTP Error ${response.status}: ${errorDetails}`);
+      // Lanzar solo el mensaje de error, sin el prefijo técnico
+      throw new Error(errorMessage);
     }
 
     // Parsear respuesta
@@ -1715,14 +2008,14 @@ const handleExpertSelection = async (expertNames) => {
       selectedExperts: expertNames
     });
 
+    // Mostrar solo el mensaje de error, sin el prefijo técnico
     addMessage({
-      text: `Error selecting experts: ${error.message}`,
+      text: error.message,
       type: 'bot',
       isError: true
     });
   }
 };
-
 
 const handleSendMessage = async (data) => {
   try {
@@ -1889,17 +2182,16 @@ const isInputDisabled = () => {
          !allowedSteps.includes(currentStep);
 };
 
-
-
 return (
   <div className="chat-container">
+    {/* Eliminamos o reemplazamos el header con el indicador de fase */}
+    {/* Si quieres mantener el header pero sin el indicador, puedes usar:
     <div className="chat-header">
-      <div className="phase-indicator">
-        Phase {currentPhase}
-      </div>
+      <div className="chat-title">Expert Consultation</div>
     </div>
+    */}
     
-    <div className="chat-messages">
+    <div className="chat-messages" ref={messagesContainerRef}>
       {messages.map((message, index) => (
         <ChatMessage 
           key={index}
@@ -1907,10 +2199,9 @@ return (
           type={message.type}
         />
       ))}
-
       {loading && <div className="loading">Processing your request...</div>}
+      <div className="scroll-anchor"></div>
     </div>
-
     <ChatInput 
       onSendMessage={handleSendMessage}
       disabled={isInputDisabled()}
@@ -1921,5 +2212,4 @@ return (
   </div>
 );
 }
-
 export default Chat

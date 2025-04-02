@@ -1,7 +1,15 @@
-import { useEffect } from 'react';
-import Chat from "./components/Chat/Chat"
+import { useState, useEffect } from 'react';
+import Chat from "./components/Chat/Chat";
+import ChatButton from "./components/ChatButton/ChatButton";
+import './App.css';
 
 function App() {
+  const [isChatOpen, setIsChatOpen] = useState(false);
+
+  const toggleChat = () => {
+    setIsChatOpen(prevState => !prevState);
+  };
+
   useEffect(() => {
     // Ping inmediato al cargar la página
     fetch('https://expert-consultation-bot-back-ab9540834110.herokuapp.com/api/ping', {
@@ -35,10 +43,33 @@ function App() {
   }, []);
 
   return (
-    <div className="App">
-      <Chat/>
+    <div className="app-container">
+      <div className="content">
+        {/* Aquí puedes agregar el contenido principal de tu aplicación */}
+      </div>
+      
+      {/* Mostramos el chat sólo si isChatOpen es true */}
+      {isChatOpen && (
+        <div className="chat-overlay">
+          <div className="chat-header">
+            <button 
+              className="close-button" 
+              onClick={toggleChat} 
+              aria-label="Close chat"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="chat-content">
+            <Chat key="chat-instance" />
+          </div>
+        </div>
+      )}
+      
+      {/* El botón siempre está visible */}
+      <ChatButton onClick={toggleChat} isOpen={isChatOpen} />
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
