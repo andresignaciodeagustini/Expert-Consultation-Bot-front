@@ -15,7 +15,7 @@ function ChatButton({ onClick, isOpen }) {
         aria-label="Open chat"
       >
         <img 
-          src="/src/assets/img/icono.jpg" 
+          src="/src/assets/img/icono.png" 
           alt="Chat with Expert" 
           className="chat-icon"
         />
