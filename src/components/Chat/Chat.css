@@ -6,21 +6,21 @@ body {
   justify-content: center;
   align-items: center;
   background-color: #f0f2f5;
-  min-height: 100vh; /* Usamos min-height en lugar de height */
+  min-height: 100vh;
 }
 
 .chat-container {
   width: 100%;
   max-width: 800px;
-  height: 100%; /* Cambiado de 90vh a 100% para adaptarse mejor al nuevo contenedor */
-  margin: 0; /* Eliminado el margen para evitar problemas de espacio */
+  height: 100%;
+  margin: 0;
   display: flex;
   flex-direction: column;
   background-color: white;
   border-radius: 12px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   position: relative;
-  overflow: hidden; /* Añadido para evitar desbordamientos */
+  overflow: hidden;
 }
 
 /* Header del chat */
@@ -40,25 +40,23 @@ body {
 
 /* Área de mensajes */
 .chat-messages {
-  flex: 1; /* Permite que ocupe el espacio disponible */
+  flex: 1;
   overflow-y: auto;
   padding: 20px;
   background-color: #fff;
   scroll-behavior: smooth;
-  min-height: 0; /* Necesario para que flex: 1 funcione correctamente con overflow */
-  display: flex; /* Añadido para mejorar el auto-scroll */
-  flex-direction: column; /* Añadido para mejorar el auto-scroll */
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Elemento fantasma para auto-scroll */
 .chat-messages::after {
   content: '';
   margin-top: auto;
   height: 1px;
-  overflow-anchor: auto; /* Ancla para scroll automático */
+  overflow-anchor: auto;
 }
 
-/* Scroll anchor para auto-scroll */
 .scroll-anchor {
   height: 1px;
   margin-top: auto;
@@ -69,7 +67,7 @@ body {
   margin-bottom: 15px;
   max-width: 80%;
   animation: fadeIn 0.3s ease-in-out;
-  overflow-anchor: none; /* Importante para navegadores modernos */
+  overflow-anchor: none;
 }
 
 .chat-message.user {
@@ -95,17 +93,16 @@ body {
   color: #dc3545;
 }
 
-/* Estilos para el área del input para asegurar que siempre sea visible */
+/* Estilos para el área del input */
 .chat-input {
   padding: 15px;
   background-color: white;
   border-top: 1px solid #e0e0e0;
-  z-index: 100; /* Alto z-index para asegurar que esté por encima */
-  position: relative; /* Posicionamiento para que funcione el z-index */
-  flex-shrink: 0; /* Evita que el input se encoja cuando el contenido crece */
+  z-index: 100;
+  position: relative;
+  flex-shrink: 0;
 }
 
-/* Ajustes para la visualización dentro del contenedor chat-overlay */
 .chat-content {
   display: flex;
   flex-direction: column;
@@ -120,27 +117,20 @@ body {
   padding: 20px;
   margin: 15px 0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  animation: fadeInContainer 1.5s ease-out; /* Más lento */
+  animation: fadeInContainer 0.8s ease-out;
   width: 100%;
   box-sizing: border-box;
-  overflow: hidden; /* Prevenir desbordamiento */
-  /* Asegurarnos que comienza parcialmente visible */
-  opacity: 0.2; 
+  overflow: hidden;
+  opacity: 0.2;
   animation-fill-mode: forwards;
 }
 
-/* Animación más lenta para el contenedor con parada intermedia */
 @keyframes fadeInContainer {
   0% {
     opacity: 0;
     transform: translateY(15px);
   }
-  10% { /* Rápidamente llegar a un estado parcialmente visible */
-    opacity: 0.7;
-    transform: translateY(10px);
-  }
-  /* Mantenerlo parcialmente visible durante más tiempo */
-  90% {
+  50% {
     opacity: 0.8;
     transform: translateY(5px);
   }
@@ -167,7 +157,6 @@ body {
   margin-bottom: 20px;
   width: 100%;
   box-sizing: border-box;
-  /* Añadir un min-height para que el contenedor tenga tamaño incluso antes de cargar tarjetas */
   min-height: 300px;
 }
 
@@ -182,19 +171,16 @@ body {
   width: 90%;
   box-sizing: border-box;
   overflow: hidden;
-  opacity: 0; /* Comienza invisible */
-  animation: cardAppear 1s ease-out forwards; /* Animación más corta para que se vean más rápido */
-  /* Asegurarse que la animación se mantiene al final */
+  opacity: 0;
+  animation: cardAppear 0.5s ease-out forwards;
   animation-fill-mode: both;
-  /* Hacer que el elemento sea "visible" para el scroll incluso antes de aparecer */
-  visibility: visible; 
+  visibility: visible;
 }
 
-/* Animación ajustada para tarjetas */
 @keyframes cardAppear {
   0% {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(10px);
   }
   100% {
     opacity: 1;
@@ -202,27 +188,29 @@ body {
   }
 }
 
-/* Retrasos adecuados, pero no tan espaciados */
-.company-card:nth-child(1) { animation-delay: 0.5s; } /* Retraso inicial para que el usuario vea el proceso */
-.company-card:nth-child(2) { animation-delay: 0.8s; }
-.company-card:nth-child(3) { animation-delay: 1.1s; }
-.company-card:nth-child(4) { animation-delay: 1.4s; }
-.company-card:nth-child(5) { animation-delay: 1.7s; }
-.company-card:nth-child(6) { animation-delay: 2.0s; }
-.company-card:nth-child(7) { animation-delay: 2.3s; }
-.company-card:nth-child(8) { animation-delay: 2.6s; }
-.company-card:nth-child(9) { animation-delay: 2.9s; }
-.company-card:nth-child(10) { animation-delay: 3.2s; }
-.company-card:nth-child(11) { animation-delay: 3.5s; }
-.company-card:nth-child(12) { animation-delay: 3.8s; }
-.company-card:nth-child(13) { animation-delay: 4.1s; }
-.company-card:nth-child(14) { animation-delay: 4.4s; }
-.company-card:nth-child(15) { animation-delay: 4.7s; }
-.company-card:nth-child(16) { animation-delay: 5.0s; }
-.company-card:nth-child(17) { animation-delay: 5.3s; }
-.company-card:nth-child(18) { animation-delay: 5.6s; }
-.company-card:nth-child(19) { animation-delay: 5.9s; }
-.company-card:nth-child(20) { animation-delay: 6.2s; }
+/* Retrasos modificados para las tarjetas */
+.company-card:nth-child(1) { animation-delay: 0.2s; }
+.company-card:nth-child(2) { animation-delay: 0.3s; }
+.company-card:nth-child(3) { animation-delay: 0.4s; }
+.company-card:nth-child(4) { animation-delay: 0.5s; }
+.company-card:nth-child(5) { animation-delay: 0.6s; }
+.company-card:nth-child(6) { animation-delay: 0.7s; }
+.company-card:nth-child(7) { animation-delay: 0.8s; }
+.company-card:nth-child(8) { animation-delay: 0.9s; }
+.company-card:nth-child(9) { animation-delay: 1.0s; }
+.company-card:nth-child(10) { animation-delay: 1.1s; }
+.company-card:nth-child(11) { animation-delay: 1.2s; }
+.company-card:nth-child(12) { animation-delay: 1.3s; }
+.company-card:nth-child(13) { animation-delay: 1.4s; }
+.company-card:nth-child(14) { animation-delay: 1.5s; }
+.company-card:nth-child(15) { animation-delay: 1.6s; }
+.company-card:nth-child(16) { animation-delay: 1.7s; }
+.company-card:nth-child(17) { animation-delay: 1.8s; }
+.company-card:nth-child(18) { animation-delay: 1.9s; }
+.company-card:nth-child(19) { animation-delay: 2.0s; }
+.company-card:nth-child(20) { animation-delay: 2.1s; }
+
+
 
 .company-card:hover {
   transform: translateY(-2px);
@@ -247,10 +235,10 @@ body {
   font-size: 0.65em;
   color: #333;
   line-height: 1.3;
-  white-space: nowrap; /* Evitar saltos de línea */
-  overflow: hidden; /* Ocultar texto que sobrepase */
-  text-overflow: ellipsis; /* Mostrar "..." si el texto sobrepasa */
-  width: 100%; /* Asegurar que ocupa el espacio disponible */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
 .suggestions-footer {
@@ -502,7 +490,7 @@ body {
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(5px);
   }
   to {
     opacity: 1;
@@ -511,22 +499,22 @@ body {
 }
 
 @keyframes pulse {
-  0% { opacity: 0.6; }
+  0% { opacity: 0.7; }
   50% { opacity: 1; }
-  100% { opacity: 0.6; }
+  100% { opacity: 0.7; }
 }
 
-/* Animación para tarjetas */
+/* Animación para tarjetas de expertos */
 .expert-card:nth-child(1) { animation-delay: 0.1s; }
 .expert-card:nth-child(2) { animation-delay: 0.2s; }
 .expert-card:nth-child(3) { animation-delay: 0.3s; }
 .expert-card:nth-child(4) { animation-delay: 0.4s; }
 .expert-card:nth-child(5) { animation-delay: 0.5s; }
 
-/* Ajusta el grid para laptops y tablets */
+/* Media Queries */
 @media (min-width: 768px) and (max-width: 1024px) {
   .companies-grid {
-    grid-template-columns: repeat(3, 1fr); /* Forzar 3 columnas en laptops */
+    grid-template-columns: repeat(3, 1fr);
     gap: 12px;
   }
   
@@ -535,7 +523,6 @@ body {
   }
 }
 
-/* Responsive Design */
 @media (max-width: 768px) {
   .chat-container {
     height: 100%;
@@ -549,7 +536,7 @@ body {
     max-width: 90%;
   }
   .companies-grid {
-    grid-template-columns: repeat(2, 1fr); /* 2 columnas en dispositivos medianos */
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
   }
   .expert-info-grid {
@@ -561,19 +548,19 @@ body {
   }
   .company-card {
     margin-bottom: 8px;
-    padding: 10px; /* Reducir el padding */
+    padding: 10px;
   }
   .expert-card {
     margin-bottom: 8px;
   }
   .company-number {
-    width: 20px; /* Más pequeño */
+    width: 20px;
     height: 20px;
     font-size: 0.8em;
-    margin-right: 8px; /* Menos margen */
+    margin-right: 8px;
   }
   .company-name {
-    font-size: 0.85em; /* Texto más pequeño */
+    font-size: 0.85em;
   }
   .suggestions-container,
   .screening-questions-container,
@@ -583,10 +570,9 @@ body {
   }
 }
 
-/* Para pantallas muy pequeñas */
 @media (max-width: 400px) {
   .companies-grid {
-    grid-template-columns: 1fr; /* Solo 1 columna en dispositivos muy pequeños */
+    grid-template-columns: 1fr;
   }
   .experts-grid {
     grid-template-columns: 1fr;
