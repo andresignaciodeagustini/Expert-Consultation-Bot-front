@@ -1,5 +1,6 @@
 import './ChatButton.css'
 import PropTypes from 'prop-types'
+import chatIcon from '../../assets/img/icono.png'  // Importa la imagen correctamente
 
 function ChatButton({ onClick, isOpen }) {
   // Si el chat está abierto, no renderizamos el botón
@@ -15,7 +16,7 @@ function ChatButton({ onClick, isOpen }) {
         aria-label="Open chat"
       >
         <img 
-          src="/src/assets/img/icono.png" 
+          src={chatIcon}  // Usa la variable importada en lugar de la ruta directa
           alt="Chat with Expert" 
           className="chat-icon"
         />
