@@ -1168,7 +1168,7 @@ const handleClientPerspective = async () => {
 const handleClientPerspectiveResponse = async (answer) => {
   console.log('🔍 Estado actual antes de client perspective:', phase3Data);
   try {
-    setLoading(true); // Asumiendo que existe esta función
+    setLoading(true);
     
     const requestBody = {
       answer: answer,
@@ -1176,6 +1176,8 @@ const handleClientPerspectiveResponse = async (answer) => {
       region: phase3Data.region,
       language: userData.detectedLanguage
     };
+    
+    console.log('📤 Enviando solicitud a client-perspective:', requestBody);
     
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/client-perspective`, {
       method: 'POST',
@@ -1194,16 +1196,24 @@ const handleClientPerspectiveResponse = async (answer) => {
     });
 
     if (data.success) {
-      // Determinar si la respuesta es afirmativa
-      const isClientInterested = answer.toLowerCase() === 'yes' || 
-                               answer.toLowerCase() === 'sí' || 
-                               answer.toLowerCase() === 'si';
+      // CORRECCIÓN: Usar el campo include_client_companies del backend en lugar de hacer una verificación manual
+      const isClientInterested = data.include_client_companies === true;
+      console.log('👁️ Cliente interesado en empresas:', isClientInterested);
 
-      // Lista de empresas con estilo (solo si hay respuesta afirmativa)
-      if (isClientInterested && data.suggested_companies?.length > 0) {
+      // Lista de empresas con estilo (solo si hay respuesta afirmativa Y hay empresas sugeridas)
+      if (isClientInterested && Array.isArray(data.suggested_companies) && data.suggested_companies.length > 0) {
+        console.log('📋 Mostrando lista de', data.suggested_companies.length, 'empresas sugeridas');
+        
+        // Si hay un mensaje prefijo para la lista, mostrarlo primero
+        if (data.message_prefix) {
+          addMessage({
+            text: data.message_prefix,
+            type: 'bot'
+          });
+        }
+
         const companiesHtml = `
           <div class="suggestions-container client-companies">
-            
             <div class="companies-grid">
               ${data.suggested_companies.map((company, index) => `
                 <div class="company-card">
@@ -1220,13 +1230,15 @@ const handleClientPerspectiveResponse = async (answer) => {
           type: 'bot',
           isHtml: true
         });
+      } else if (isClientInterested) {
+        console.log('⚠️ Cliente interesado pero no hay empresas sugeridas o no es un array válido:', data.suggested_companies);
       }
 
       // Actualizar estado
       setPhase3Data(prev => ({
         ...prev,
         clientPerspective: isClientInterested,
-        clientCompanies: isClientInterested ? (data.suggested_companies || []) : [],
+        clientCompanies: isClientInterested && Array.isArray(data.suggested_companies) ? data.suggested_companies : [],
         totalMatches: isClientInterested ? (data.total_matches || 0) : 0,
         uniqueCompanies: isClientInterested ? (data.unique_companies || 0) : 0,
         evaluationSections: {
@@ -1253,10 +1265,9 @@ const handleClientPerspectiveResponse = async (answer) => {
       isError: true
     });
   } finally {
-    setLoading(false); // Asumiendo que existe esta función
+    setLoading(false);
   }
 };
-
 
 
 
@@ -1318,7 +1329,7 @@ const handleSupplyChainExperience = async () => {
 const handleSupplyChainExperienceResponse = async (answer) => {
   console.log('🔍 Estado actual antes de supply chain:', phase3Data);
   try {
-    setLoading(true); // Asumiendo que existe esta función
+    setLoading(true);
     
     const requestBody = {
       answer: answer,
@@ -1336,6 +1347,14 @@ const handleSupplyChainExperienceResponse = async (answer) => {
     const data = await response.json();
     console.log('📥 Respuesta recibida del servidor:', data);
 
+    // Agregar mensaje prefijo si existe
+    if (data.message_prefix) {
+      addMessage({
+        text: data.message_prefix,
+        type: 'bot'
+      });
+    }
+
     // Siempre mostrar el mensaje principal
     addMessage({
       text: data.message,
@@ -1344,13 +1363,12 @@ const handleSupplyChainExperienceResponse = async (answer) => {
     });
 
     if (data.success) {
-      // Determinar si la respuesta es afirmativa
-      const isSupplyChainInterested = answer.toLowerCase() === 'yes' || 
-                                    answer.toLowerCase() === 'sí' || 
-                                    answer.toLowerCase() === 'si';
+      // Usar el campo del backend en lugar de verificación manual
+      const isSupplyChainInterested = data.include_companies === true;
+      console.log('🔄 Es interesado en cadena de suministro según backend:', isSupplyChainInterested);
 
-      // Lista de empresas con estilo (solo si hay respuesta afirmativa)
-      if (isSupplyChainInterested && data.suggested_companies?.length > 0) {
+      // Lista de empresas con estilo (solo si hay respuesta afirmativa y hay empresas sugeridas)
+      if (isSupplyChainInterested && Array.isArray(data.suggested_companies) && data.suggested_companies.length > 0) {
         const companiesHtml = `
           <div class="suggestions-container supply-chain-companies">
             
@@ -1376,7 +1394,7 @@ const handleSupplyChainExperienceResponse = async (answer) => {
       setPhase3Data(prev => ({
         ...prev,
         supplyChainPerspective: isSupplyChainInterested,
-        supplyChainCompanies: isSupplyChainInterested ? (data.suggested_companies || []) : [],
+        supplyChainCompanies: isSupplyChainInterested ? (Array.isArray(data.suggested_companies) ? data.suggested_companies : []) : [],
         supplyChainTotalMatches: isSupplyChainInterested ? (data.total_matches || 0) : 0,
         supplyChainUniqueCompanies: isSupplyChainInterested ? (data.unique_companies || 0) : 0,
         evaluationSections: {
@@ -1403,7 +1421,7 @@ const handleSupplyChainExperienceResponse = async (answer) => {
       isError: true
     });
   } finally {
-    setLoading(false); // Asumiendo que existe esta función
+    setLoading(false);
   }
 };
 
@@ -1666,550 +1684,629 @@ const handleEvaluationQuestionsSectionsResponse = async (answer) => {
       type: 'bot',
       isError: true
     });
-  }
-};
+  }};
 
-const searchIndustryExperts = async () => {
-  try {
-    const requestBody = {
-      sector: phase2Data.sector,
-      region: phase2Data.processed_region.region,
-      companies: phase2Data.companies || [],
-      clientPerspective: phase3Data.clientPerspective || false,
-      supplyChainRequired: phase3Data.supplyChainRequired || false,
-      language: userData.detectedLanguage || 'en'
-    };
 
-    console.log('🔍 Search Data:', requestBody);
-
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/industry-experts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    });
-
-    const data = await response.json();
-    console.log('✅ Response received:', data);
-
-    const hasExperts = data.experts && (
-      (data.experts.main?.experts?.length > 0) ||
-      (data.experts.client?.experts?.length > 0) ||
-      (data.experts.supply_chain?.experts?.length > 0)
-    );
-
-    if (data.success && hasExperts) {
-      let detailedMessage = `
-        <div class="experts-container">
-          <h3 class="experts-title">${data.messages.experts_found_title}</h3>
-      `;
-
-      if (data.experts.main?.experts?.length > 0) {
-        detailedMessage += `
-          <div class="experts-section">
-            <h4 class="section-title">${data.messages.main_experts_title}</h4>
-            <div class="experts-grid">
-              ${data.experts.main.experts.map(expert => formatExpertInfo(expert)).join('')}
-            </div>
-          </div>
-        `;
-      }
-
-      if (phase3Data.clientPerspective && data.experts.client?.experts?.length > 0) {
-        detailedMessage += `
-          <div class="experts-section">
-            <h4 class="section-title">${data.messages.client_experts_title}</h4>
-            <div class="experts-grid">
-              ${data.experts.client.experts.map(expert => formatExpertInfo(expert)).join('')}
-            </div>
-          </div>
-        `;
-      }
-
-      if (phase3Data.supplyChainRequired && data.experts.supply_chain?.experts?.length > 0) {
-        detailedMessage += `
-          <div class="experts-section">
-            <h4 class="section-title">${data.messages.supply_chain_experts_title}</h4>
-            <div class="experts-grid">
-              ${data.experts.supply_chain.experts.map(expert => formatExpertInfo(expert)).join('')}
-            </div>
-          </div>
-        `;
-      }
-
-      detailedMessage += `</div>`;
-
-      // Mostrar lista de expertos
-      addMessage({
-        text: detailedMessage,
-        type: 'bot',
-        isHtml: true
+  const searchIndustryExperts = async () => {
+    try {
+      const requestBody = {
+        sector: phase2Data.sector,
+        region: phase2Data.processed_region.region,
+        companies: phase2Data.companies || [],
+        clientPerspective: phase3Data.clientPerspective || false,
+        supplyChainRequired: phase3Data.supplyChainRequired || false,
+        language: userData.detectedLanguage || 'en'
+      };
+  
+      console.log('🔍 Search Data:', requestBody);
+  
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/industry-experts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
       });
-
-      // Actualizar estado con los expertos encontrados
-      setPhase3Data(prev => ({
-        ...prev,
-        selectedExperts: {
-          companies: data.experts.main?.experts || [],
-          clients: data.experts.client?.experts || [],
-          suppliers: data.experts.supply_chain?.experts || []
-        },
-        totalMatches: data.total_experts_found || 0,
-        uniqueCompanies: data.total_experts_shown || 0,
-        filtersApplied: {
-          detected_language: userData.detectedLanguage
-        }
-      }));
-
-      // Agregar mensaje de instrucciones para selección
-      setTimeout(() => {
-        const exampleName = data.experts.main?.experts[0]?.name || 'Alessandro Nielsen';
-        const selectionMessage = `
-          <div class="selection-prompt">
-            <p>${data.messages.selection_instructions}</p>
-            <p class="example">${data.messages.selection_example.replace('{expert_name}', exampleName)}</p>
-            <p>${data.messages.selection_prompt}</p>
-          </div>
+  
+      const data = await response.json();
+      console.log('✅ Response received:', data);
+  
+      const hasExperts = data.experts && (
+        (data.experts.main?.experts?.length > 0) ||
+        (data.experts.client?.experts?.length > 0) ||
+        (data.experts.supply_chain?.experts?.length > 0)
+      );
+  
+      if (data.success && hasExperts) {
+        let detailedMessage = `
+          <div class="experts-container">
+            <h3 class="experts-title">${data.messages.experts_found_title}</h3>
         `;
-
+  
+        if (data.experts.main?.experts?.length > 0) {
+          detailedMessage += `
+            <div class="experts-section">
+              <h4 class="section-title">${data.messages.main_experts_title}</h4>
+              <div class="experts-grid">
+                ${data.experts.main.experts.map(expert => formatExpertInfo(expert, data.messages)).join('')}
+              </div>
+            </div>
+          `;
+        }
+  
+        if (phase3Data.clientPerspective && data.experts.client?.experts?.length > 0) {
+          detailedMessage += `
+            <div class="experts-section">
+              <h4 class="section-title">${data.messages.client_experts_title}</h4>
+              <div class="experts-grid">
+                ${data.experts.client.experts.map(expert => formatExpertInfo(expert, data.messages)).join('')}
+              </div>
+            </div>
+          `;
+        }
+  
+        if (phase3Data.supplyChainRequired && data.experts.supply_chain?.experts?.length > 0) {
+          detailedMessage += `
+            <div class="experts-section">
+              <h4 class="section-title">${data.messages.supply_chain_experts_title}</h4>
+              <div class="experts-grid">
+                ${data.experts.supply_chain.experts.map(expert => formatExpertInfo(expert, data.messages)).join('')}
+              </div>
+            </div>
+          `;
+        }
+  
+        detailedMessage += `</div>`;
+  
+        // Mostrar lista de expertos
         addMessage({
-          text: selectionMessage,
+          text: detailedMessage,
           type: 'bot',
           isHtml: true
         });
-
-        setCurrentStep('expert_selection');
-      }, 1000);
-
-    } else {
-      console.log('No experts found:', data);
-      throw new Error(data.message || 'No experts found matching the specified criteria');
-    }
-  } catch (error) {
-    console.error('❌ Error searching experts:', error);
-    addMessage({
-      text: error.message || 'Error searching experts. Please try again.',
-      type: 'bot',
-      isError: true
-    });
-  }
-};
-
-const formatExpertInfo = (expert) => {
-  // También podríamos recibir las etiquetas traducidas desde el backend
-  return `
-    <div class="expert-card">
-      <div class="expert-header">
-        <span class="expert-name">${expert.name}</span>
-      </div>
-      <div class="expert-details">
-        <div class="detail-item">
-          <span class="detail-label">Current Role</span>
-          <span class="detail-value">${expert.current_role}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">Company</span>
-          <span class="detail-value">${expert.current_employer}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">Experience</span>
-          <span class="detail-value">${expert.experience}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">Location</span>
-          <span class="detail-value">${expert.location}</span>
-        </div>
-      </div>
-    </div>
-  `;
-};
-const handleExpertSelection = async (expertNames) => {
-  try {
-    // Log inicial
-    console.log('=== Starting Expert Selection ===');
-    console.log('Expert Names Input:', expertNames);
-
-    // Validación y preparación de expertos seleccionados
-    const selectedExperts = expertNames
-      .split(',')
-      .map(name => name.trim())
-      .filter(name => name.length > 0);
-
-    console.log('Processed Selected Experts:', selectedExperts);
-
-    // Verificación de datos de expertos
-    if (!phase3Data?.selectedExperts) {
-      console.error('No experts data available in phase3Data');
-      throw new Error('No experts data available');
-    }
-
-    // Log de datos de fase 3
-    console.log('Phase 3 Data:', JSON.stringify(phase3Data, null, 2));
-
-    // Preparación del cuerpo de la solicitud
-    const requestBody = {
-      selected_experts: selectedExperts,
-      all_experts_data: {
-        experts: {
-          main: { 
-            experts: phase3Data.selectedExperts.companies || [],
-            log: `Companies count: ${phase3Data.selectedExperts.companies?.length || 0}`
+  
+        // Actualizar estado con los expertos encontrados
+        setPhase3Data(prev => ({
+          ...prev,
+          selectedExperts: {
+            companies: data.experts.main?.experts || [],
+            clients: data.experts.client?.experts || [],
+            suppliers: data.experts.supply_chain?.experts || []
           },
-          client: { 
-            experts: phase3Data.selectedExperts.clients || [],
-            log: `Clients count: ${phase3Data.selectedExperts.clients?.length || 0}`
-          },
-          supply_chain: { 
-            experts: phase3Data.selectedExperts.suppliers || [],
-            log: `Suppliers count: ${phase3Data.selectedExperts.suppliers?.length || 0}`
+          totalMatches: data.total_experts_found || 0,
+          uniqueCompanies: data.total_experts_shown || 0,
+          filtersApplied: {
+            detected_language: userData.detectedLanguage
           }
-        }
-      },
-      evaluation_questions: phase3Data?.evaluationSections?.questions || {}
-    };
-
-    // Logs detallados de la solicitud
-    console.log('Request Body:', JSON.stringify(requestBody, null, 2));
-    console.log('Request URL:', `${import.meta.env.VITE_API_URL}/api/select-experts`);
-
-    // Realizar solicitud
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/select-experts`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    // Manejo de errores de red
-    if (!response.ok) {
-      let errorMessage = '';
-      try {
-        const errorResponse = await response.json();
-        console.error('Server Error Response:', errorResponse);
-        // Solo extraer el mensaje de error, sin los detalles técnicos
-        errorMessage = errorResponse.message || 'Error selecting experts';
-      } catch {
-        errorMessage = 'Error connecting to the server. Please try again.';
+        }));
+  
+        // Agregar mensaje de instrucciones para selección
+        setTimeout(() => {
+          const exampleName = data.experts.main?.experts[0]?.name || 'Alessandro Nielsen';
+          const selectionMessage = `
+            <div class="selection-prompt">
+              <p>${data.messages.selection_instructions}</p>
+              <p class="example">${data.messages.selection_example.replace('{expert_name}', exampleName)}</p>
+              <p>${data.messages.selection_prompt}</p>
+            </div>
+          `;
+  
+          addMessage({
+            text: selectionMessage,
+            type: 'bot',
+            isHtml: true
+          });
+  
+          setCurrentStep('expert_selection');
+        }, 1000);
+  
+      } else {
+        console.log('No experts found:', data);
+        throw new Error(data.message || 'No experts found matching the specified criteria');
       }
-
-      // Lanzar solo el mensaje de error, sin el prefijo técnico
-      throw new Error(errorMessage);
-    }
-
-    // Parsear respuesta
-    const data = await response.json();
-    console.log('Server Response:', JSON.stringify(data, null, 2));
-
-    // Validar respuesta
-    if (!data.success) {
-      console.error('Unsuccessful Response:', data);
-      throw new Error(data.message || 'Error selecting experts');
-    }
-
-    // Procesar detalles de expertos
-    if (data.expert_details && data.expert_details.length > 0) {
-      console.log('Expert Details Found:', data.expert_details.length);
-      const expert = data.expert_details[0];
-      
-      // Log de detalles del experto
-      console.log('Selected Expert:', JSON.stringify(expert, null, 2));
-
-      const expertHtml = `
-        <div class="selected-expert-container">
-          <div class="expert-selection-header"></div>
-          <div class="selected-expert-card">
-            <div class="expert-main-info">
-              <h4 class="expert-name">${expert.name || 'Expert Name Not Available'}</h4>
-              <span class="expert-category">${expert.category || 'N/A'}</span>
-            </div>
-            <div class="expert-info-grid">
-              <div class="info-item">
-                <span class="info-label">Current Role</span>
-                <span class="info-value">${expert.current_role || 'N/A'}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Company</span>
-                <span class="info-value">${expert.current_employer || 'N/A'}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Experience</span>
-                <span class="info-value">${expert.experience || 'N/A'}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Location</span>
-                <span class="info-value">${expert.location || 'N/A'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-      addMessage({ text: expertHtml, type: 'bot', isHtml: true });
-    } else {
-      console.warn('No expert details found in response');
-    }
-
-    // Procesar preguntas de screening
-    if (data.screening_questions) {
-      console.log('Screening Questions:', JSON.stringify(data.screening_questions, null, 2));
-      
-      const questionsHtml = `
-        <div class="screening-questions-container">
-          <div class="questions-header">
-            <h3>Screening Questions</h3>
-          </div>
-          <div class="questions-list">
-            ${Object.entries(data.screening_questions)
-              .map(([category, questions]) => {
-                const categoryLabels = {
-                  main: 'MAIN COMPANIES',
-                  client: 'CLIENT COMPANIES',
-                  supply_chain: 'SUPPLY CHAIN COMPANIES'
-                };
-                
-                return `
-                  <div class="question-category">
-                    <h4 class="category-title">${categoryLabels[category] || category}</h4>
-                    <div class="question-item">${questions || 'No questions available'}</div>
-                  </div>
-                `;
-              }).join('')}
-          </div>
-        </div>
-      `;
-      addMessage({ text: questionsHtml, type: 'bot', isHtml: true });
-    } else {
-      console.warn('No screening questions found in response');
-    }
-
-    // Mensaje final
-    if (data.final_message) {
-      const finalMessageHtml = `
-        <div class="final-message-container">
-          <div class="final-message">
-            <i class="message-icon">✓</i>
-            <p>${data.final_message}</p>
-          </div>
-        </div>
-      `;
-      addMessage({ text: finalMessageHtml, type: 'bot', isHtml: true });
-    } else {
-      console.warn('No final message found in response');
-    }
-
-    console.log('=== Expert Selection Completed Successfully ===');
-
-  } catch (error) {
-    // Manejo de errores detallado
-    console.error('Detailed Error in handleExpertSelection:', {
-      message: error.message,
-      stack: error.stack,
-      phase3Data: JSON.stringify(phase3Data, null, 2),
-      selectedExperts: expertNames
-    });
-
-    // Mostrar solo el mensaje de error, sin el prefijo técnico
-    addMessage({
-      text: error.message,
-      type: 'bot',
-      isError: true
-    });
-  }
-};
-
-const handleSendMessage = async (data) => {
-  try {
-    console.log('=== Starting handleSendMessage ===');
-    console.log('Input data:', {
-      currentPhase,
-      currentStep,
-      messageData: data,
-      phase3Data: phase3Data
-    });
-
-    setLoading(true);
-
-    if (data.type === 'error') {
-      console.log('=== Handling Error Message ===');
+    } catch (error) {
+      console.error('❌ Error searching experts:', error);
       addMessage({
-        text: data.value,
+        text: error.message || 'Error searching experts. Please try again.',
         type: 'bot',
         isError: true
       });
-      return;
     }
-
-    const userMessage = data.value;
-    addMessage({ text: userMessage, type: 'user' });
-
-    // Manejar evaluation_questions en fase 3
-    if (currentStep === 'evaluation_questions') {
-      setCurrentPhase(3);
-      
-      if (!phase3Data.evaluationRequired) {
-        // Primera vez, manejando la pregunta inicial de sí/no
-        console.log('=== Processing Initial Evaluation Question ===');
-        await handleEvaluationQuestionsResponse(userMessage);
-      } else {
-        // Ya confirmó que quiere evaluación, usar el endpoint de secciones
-        console.log('=== Processing Evaluation Sections ===');
-        await handleEvaluationQuestionsSectionsResponse(userMessage);
-      }
-      return;
+  };
+  
+  const formatExpertInfo = (expert, messages) => {
+    // Inicializar etiquetas por defecto en inglés
+    let roleLabel = 'Current Role';
+    let companyLabel = 'Company';
+    let experienceLabel = 'Experience';
+    let locationLabel = 'Location';
+    
+    // Verificar si tenemos etiquetas en los mensajes globales
+    if (messages) {
+      if (messages.current_role_label) roleLabel = messages.current_role_label;
+      if (messages.company_label) companyLabel = messages.company_label;
+      if (messages.experience_label) experienceLabel = messages.experience_label;
+      if (messages.location_label) locationLabel = messages.location_label;
     }
-
-    // Resto de las fases
-    if (currentPhase === 1) {
-      console.log('=== Processing Phase 1 ===');
-      switch (currentStep) {
-        case 'email':
-          await handleEmailCapture(userMessage);
-          break;
-        case 'name':
-          await handleNameCapture(userMessage);
-          break;
-        case 'expert_connection':
-          await handleExpertConnection(userMessage);
-          break;
-        default:
-          console.log('Warning: Unknown step in Phase 1:', currentStep);
-          break;
-      }
-    } else if (currentPhase === 2) {
-      console.log('=== Processing Phase 2 ===');
-      switch (currentStep) {
-        case 'sector_selection':
-        case 'sector':
-          await handleSectorSelection(userMessage);
-          break;
+    
+    // Si el experto tiene formatted_data, extraer etiquetas y valores
+    let roleValue = expert.current_role;
+    let companyValue = expert.current_employer;
+    let experienceValue = expert.experience;
+    let locationValue = expert.location;
+    
+    if (expert.formatted_data) {
+      // Con los cambios del backend, formatted_data ahora contiene etiquetas y valores traducidos
+      // Buscar las etiquetas traducidas para usarlas como claves
+      for (const [key, value] of Object.entries(expert.formatted_data)) {
+        // Actualizar etiquetas basadas en las claves de formatted_data
+        if (key === messages.current_role_label) roleLabel = key;
+        else if (key === messages.company_label) companyLabel = key;
+        else if (key === messages.experience_label) experienceLabel = key;
+        else if (key === messages.location_label) locationLabel = key;
         
-        case 'specific_area':  // Nuevo caso
-          await handleSpecificAreaSelection(userMessage);
-          break;
-        case 'region':
-          await handleRegionInput(userMessage);
-          break;
-        case 'companies':
-          await handleCompaniesInput(userMessage);
-          break;
-        case 'exclude_companies':
-          await handleExcludeCompaniesResponse(userMessage);
-          break;
-        case 'client_perspective':
-          await handleClientPerspectiveResponse(userMessage);
-          break;
-        case 'supply_chain_experience':
-          await handleSupplyChainExperienceResponse(userMessage);
-          break;
-        case 'next_step':
-          await handleCompanyAgreement(userMessage);
-          break;
-        case 'employment_status':
-          await handleEmploymentStatusResponse(userMessage);
-          break;
-        default:
-          console.warn('Unknown step in Phase 2:', currentStep);
-          break;
-      }
-    } else if (currentPhase === 3) {
-      console.log('=== Processing Phase 3 ===');
-      switch (currentStep) {
-        case 'expert_search':
-          await searchIndustryExperts();
-          break;
-        case 'expert_selection':
-          await handleExpertSelection(userMessage);
-          break;
-        default:
-          console.warn('Unknown step in Phase 3:', currentStep);
-          break;
+        // Obtener valores traducidos
+        if (key === roleLabel || key === messages.current_role_label) roleValue = value;
+        else if (key === companyLabel || key === messages.company_label) companyValue = value;
+        else if (key === experienceLabel || key === messages.experience_label) experienceValue = value;
+        else if (key === locationLabel || key === messages.location_label) locationValue = value;
       }
     }
-
-    console.log('=== State After Processing ===');
-    console.log('Current phase:', currentPhase);
-    console.log('Current step:', currentStep);
-    console.log('Phase3Data:', phase3Data);
-
-  } catch (error) {
-    console.error('=== Error in handleSendMessage ===');
-    console.error('Error details:', error);
-    console.error('State at error:', {
-      phase: currentPhase,
-      step: currentStep,
-      phase3Data: phase3Data
-    });
     
-    addMessage({
-      text: error.message || "Lo siento, hubo un error procesando tu solicitud.",
-      type: 'bot',
-      isError: true
-    });
-  } finally {
-    setLoading(false);
-    console.log('=== Finished handleSendMessage ===');
-    console.log('Final step:', currentStep);
-    console.log('Final phase3Data:', phase3Data);
+    // Si el experto tiene field_labels
+    if (expert.field_labels) {
+      if (expert.field_labels.current_role) roleLabel = expert.field_labels.current_role;
+      if (expert.field_labels.current_employer) companyLabel = expert.field_labels.current_employer;
+      if (expert.field_labels.experience) experienceLabel = expert.field_labels.experience;
+      if (expert.field_labels.location) locationLabel = expert.field_labels.location;
+    }
+    
+    return `
+      <div class="expert-card">
+        <div class="expert-header">
+          <span class="expert-name">${expert.name}</span>
+        </div>
+        <div class="expert-details">
+          <div class="detail-item">
+            <span class="detail-label">${roleLabel}</span>
+            <span class="detail-value">${roleValue}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">${companyLabel}</span>
+            <span class="detail-value">${companyValue}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">${experienceLabel}</span>
+            <span class="detail-value">${experienceValue}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">${locationLabel}</span>
+            <span class="detail-value">${locationValue}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+  
+  const handleExpertSelection = async (expertNames) => {
+    try {
+      // Log inicial
+      console.log('=== Starting Expert Selection ===');
+      console.log('Expert Names Input:', expertNames);
+  
+      // Validación y preparación de expertos seleccionados
+      const selectedExperts = expertNames
+        .split(',')
+        .map(name => name.trim())
+        .filter(name => name.length > 0);
+  
+      console.log('Processed Selected Experts:', selectedExperts);
+  
+      // Verificación de datos de expertos
+      if (!phase3Data?.selectedExperts) {
+        console.error('No experts data available in phase3Data');
+        throw new Error('No experts data available');
+      }
+  
+      // Log de datos de fase 3
+      console.log('Phase 3 Data:', JSON.stringify(phase3Data, null, 2));
+  
+      // Preparación del cuerpo de la solicitud
+      const requestBody = {
+        selected_experts: selectedExperts,
+        all_experts_data: {
+          experts: {
+            main: { 
+              experts: phase3Data.selectedExperts.companies || [],
+              log: `Companies count: ${phase3Data.selectedExperts.companies?.length || 0}`
+            },
+            client: { 
+              experts: phase3Data.selectedExperts.clients || [],
+              log: `Clients count: ${phase3Data.selectedExperts.clients?.length || 0}`
+            },
+            supply_chain: { 
+              experts: phase3Data.selectedExperts.suppliers || [],
+              log: `Suppliers count: ${phase3Data.selectedExperts.suppliers?.length || 0}`
+            }
+          }
+        },
+        evaluation_questions: phase3Data?.evaluationSections?.questions || {}
+      };
+  
+      // Logs detallados de la solicitud
+      console.log('Request Body:', JSON.stringify(requestBody, null, 2));
+      console.log('Request URL:', `${import.meta.env.VITE_API_URL}/api/select-experts`);
+  
+      // Realizar solicitud
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/select-experts`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+  
+      // Manejo de errores de red
+      if (!response.ok) {
+        let errorMessage = '';
+        try {
+          const errorResponse = await response.json();
+          console.error('Server Error Response:', errorResponse);
+          // Solo extraer el mensaje de error, sin los detalles técnicos
+          errorMessage = errorResponse.message || 'Error selecting experts';
+        } catch {
+          errorMessage = 'Error connecting to the server. Please try again.';
+        }
+  
+        // Lanzar solo el mensaje de error, sin el prefijo técnico
+        throw new Error(errorMessage);
+      }
+  
+      // Parsear respuesta
+      const data = await response.json();
+      console.log('Server Response:', JSON.stringify(data, null, 2));
+  
+      // Validar respuesta
+      if (!data.success) {
+        console.error('Unsuccessful Response:', data);
+        throw new Error(data.message || 'Error selecting experts');
+      }
+  
+      // Procesar detalles de expertos
+      if (data.expert_details && data.expert_details.length > 0) {
+        console.log('Expert Details Found:', data.expert_details.length);
+        const expert = data.expert_details[0];
+        
+        // Log de detalles del experto
+        console.log('Selected Expert:', JSON.stringify(expert, null, 2));
+  
+        // Extraer etiquetas traducidas
+        let roleLabel = 'Current Role';
+        let companyLabel = 'Company';
+        let experienceLabel = 'Experience';
+        let locationLabel = 'Location';
+        
+        // Valores para mostrar (ya deberían venir traducidos del backend)
+        let roleValue = expert.current_role || 'N/A';
+        let companyValue = expert.current_employer || 'N/A';
+        let experienceValue = expert.experience || 'N/A';
+        let locationValue = expert.location || 'N/A';
+        
+        // Verificar si tenemos etiquetas en los mensajes globales de data
+        if (data.messages) {
+          if (data.messages.current_role_label) roleLabel = data.messages.current_role_label;
+          if (data.messages.company_label) companyLabel = data.messages.company_label;
+          if (data.messages.experience_label) experienceLabel = data.messages.experience_label;
+          if (data.messages.location_label) locationLabel = data.messages.location_label;
+        }
+        
+        // Si el experto tiene field_labels (estructura del servicio de selección)
+        if (expert.field_labels) {
+          if (expert.field_labels.current_role) roleLabel = expert.field_labels.current_role;
+          if (expert.field_labels.current_employer) companyLabel = expert.field_labels.current_employer;
+          if (expert.field_labels.experience) experienceLabel = expert.field_labels.experience;
+          if (expert.field_labels.location) locationLabel = expert.field_labels.location;
+        }
+  
+        const expertHtml = `
+          <div class="selected-expert-container">
+            <div class="expert-selection-header"></div>
+            <div class="selected-expert-card">
+              <div class="expert-main-info">
+                <h4 class="expert-name">${expert.name || 'Expert Name Not Available'}</h4>
+                <span class="expert-category">${expert.category || 'N/A'}</span>
+              </div>
+              <div class="expert-info-grid">
+                <div class="info-item">
+                  <span class="info-label">${roleLabel}</span>
+                  <span class="info-value">${roleValue}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">${companyLabel}</span>
+                  <span class="info-value">${companyValue}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">${experienceLabel}</span>
+                  <span class="info-value">${experienceValue}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">${locationLabel}</span>
+                  <span class="info-value">${locationValue}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        addMessage({ text: expertHtml, type: 'bot', isHtml: true });
+      } else {
+        console.warn('No expert details found in response');
+      }
+  
+      // Procesar preguntas de screening
+      if (data.screening_questions) {
+        console.log('Screening Questions:', JSON.stringify(data.screening_questions, null, 2));
+        
+        // Obtener traducciones para las categorías si están disponibles
+        const categoryLabels = {
+          main: data.messages?.main_experts_title || 'MAIN COMPANIES',
+          client: data.messages?.client_experts_title || 'CLIENT COMPANIES',
+          supply_chain: data.messages?.supply_chain_experts_title || 'SUPPLY CHAIN COMPANIES'
+        };
+        
+        // Título de preguntas de screening traducido
+        const screeningTitle = data.messages?.screening_questions_title || 'Screening Questions';
+        const noQuestionsAvailable = data.messages?.no_questions_available || 'No questions available';
+        
+        const questionsHtml = `
+          <div class="screening-questions-container">
+            <div class="questions-header">
+              <h3>${screeningTitle}</h3>
+            </div>
+            <div class="questions-list">
+              ${Object.entries(data.screening_questions)
+                .map(([category, questions]) => {
+                  return `
+                    <div class="question-category">
+                      <h4 class="category-title">${categoryLabels[category] || category}</h4>
+                      <div class="question-item">${questions || noQuestionsAvailable}</div>
+                    </div>
+                  `;
+                }).join('')}
+            </div>
+          </div>
+        `;
+        addMessage({ text: questionsHtml, type: 'bot', isHtml: true });
+      } else {
+        console.warn('No screening questions found in response');
+      }
+  
+      // Mensaje final
+      if (data.final_message) {
+        const finalMessageHtml = `
+          <div class="final-message-container">
+            <div class="final-message">
+              <i class="message-icon">✓</i>
+              <p>${data.final_message}</p>
+            </div>
+          </div>
+        `;
+        addMessage({ text: finalMessageHtml, type: 'bot', isHtml: true });
+      } else {
+        console.warn('No final message found in response');
+      }
+  
+      console.log('=== Expert Selection Completed Successfully ===');
+  
+    } catch (error) {
+      // Manejo de errores detallado
+      console.error('Detailed Error in handleExpertSelection:', {
+        message: error.message,
+        stack: error.stack,
+        phase3Data: JSON.stringify(phase3Data, null, 2),
+        selectedExperts: expertNames
+      });
+  
+      // Mostrar solo el mensaje de error, sin el prefijo técnico
+      addMessage({
+        text: error.message,
+        type: 'bot',
+        isError: true
+      });
+    }
+  };
+  
+  const handleSendMessage = async (data) => {
+    try {
+      console.log('=== Starting handleSendMessage ===');
+      console.log('Input data:', {
+        currentPhase,
+        currentStep,
+        messageData: data,
+        phase3Data: phase3Data
+      });
+  
+      setLoading(true);
+  
+      if (data.type === 'error') {
+        console.log('=== Handling Error Message ===');
+        addMessage({
+          text: data.value,
+          type: 'bot',
+          isError: true
+        });
+        return;
+      }
+  
+      const userMessage = data.value;
+      addMessage({ text: userMessage, type: 'user' });
+  
+      // Manejar evaluation_questions en fase 3
+      if (currentStep === 'evaluation_questions') {
+        setCurrentPhase(3);
+        
+        if (!phase3Data.evaluationRequired) {
+          // Primera vez, manejando la pregunta inicial de sí/no
+          console.log('=== Processing Initial Evaluation Question ===');
+          await handleEvaluationQuestionsResponse(userMessage);
+        } else {
+          // Ya confirmó que quiere evaluación, usar el endpoint de secciones
+          console.log('=== Processing Evaluation Sections ===');
+          await handleEvaluationQuestionsSectionsResponse(userMessage);
+        }
+        return;
+      }
+  
+      // Resto de las fases
+      if (currentPhase === 1) {
+        console.log('=== Processing Phase 1 ===');
+        switch (currentStep) {
+          case 'email':
+            await handleEmailCapture(userMessage);
+            break;
+          case 'name':
+            await handleNameCapture(userMessage);
+            break;
+          case 'expert_connection':
+            await handleExpertConnection(userMessage);
+            break;
+          default:
+            console.log('Warning: Unknown step in Phase 1:', currentStep);
+            break;
+        }
+      } else if (currentPhase === 2) {
+        console.log('=== Processing Phase 2 ===');
+        switch (currentStep) {
+          case 'sector_selection':
+          case 'sector':
+            await handleSectorSelection(userMessage);
+            break;
+          
+          case 'specific_area':  // Nuevo caso
+            await handleSpecificAreaSelection(userMessage);
+            break;
+          case 'region':
+            await handleRegionInput(userMessage);
+            break;
+          case 'companies':
+            await handleCompaniesInput(userMessage);
+            break;
+          case 'exclude_companies':
+            await handleExcludeCompaniesResponse(userMessage);
+            break;
+          case 'client_perspective':
+            await handleClientPerspectiveResponse(userMessage);
+            break;
+          case 'supply_chain_experience':
+            await handleSupplyChainExperienceResponse(userMessage);
+            break;
+          case 'next_step':
+            await handleCompanyAgreement(userMessage);
+            break;
+          case 'employment_status':
+            await handleEmploymentStatusResponse(userMessage);
+            break;
+          default:
+            console.warn('Unknown step in Phase 2:', currentStep);
+            break;
+        }
+      } else if (currentPhase === 3) {
+        console.log('=== Processing Phase 3 ===');
+        switch (currentStep) {
+          case 'expert_search':
+            await searchIndustryExperts();
+            break;
+          case 'expert_selection':
+            await handleExpertSelection(userMessage);
+            break;
+          default:
+            console.warn('Unknown step in Phase 3:', currentStep);
+            break;
+        }
+      }
+  
+      console.log('=== State After Processing ===');
+      console.log('Current phase:', currentPhase);
+      console.log('Current step:', currentStep);
+      console.log('Phase3Data:', phase3Data);
+  
+    } catch (error) {
+      console.error('=== Error in handleSendMessage ===');
+      console.error('Error details:', error);
+      console.error('State at error:', {
+        phase: currentPhase,
+        step: currentStep,
+        phase3Data: phase3Data
+      });
+      
+      addMessage({
+        text: error.message || "Lo siento, hubo un error procesando tu solicitud.",
+        type: 'bot',
+        isError: true
+      });
+    } finally {
+      setLoading(false);
+      console.log('=== Finished handleSendMessage ===');
+      console.log('Final step:', currentStep);
+      console.log('Final phase3Data:', phase3Data);
+    }
+  };
+  
+  // Actualizar isInputDisabled para incluir los nuevos pasos
+  const isInputDisabled = () => {
+    const allowedSteps = [
+      'employment_status',
+      'expert_selection',
+      'expert_preferences',
+      'final_confirmation',
+      'sector_selection',
+      'specific_area',
+      'region',
+      'companies',
+      'next_step',
+      'request_new_list',
+      'email',
+      'name',
+      'expert_connection',
+      'exclude_companies',
+      'client_perspective',
+      'supply_chain_experience',
+      'evaluation_questions',
+      'evaluation_sections',
+      'expert_search',
+    ];
+  
+    return loading || 
+           (currentStep === 'complete' && !phase3Data.currentExpertStep) || 
+           !allowedSteps.includes(currentStep);
+  };
+  
+  return (
+    <div className="chat-container">
+      {/* Eliminamos o reemplazamos el header con el indicador de fase */}
+      {/* Si quieres mantener el header pero sin el indicador, puedes usar:
+      <div className="chat-header">
+        <div className="chat-title">Expert Consultation</div>
+      </div>
+      */}
+      
+      <div className="chat-messages" ref={messagesContainerRef}>
+        {messages.map((message, index) => (
+          <ChatMessage 
+            key={index}
+            text={message.text}
+            type={message.type}
+          />
+        ))}
+        {loading && <div className="loading">Processing your request...</div>}
+        <div className="scroll-anchor"></div>
+      </div>
+      <ChatInput 
+        onSendMessage={handleSendMessage}
+        disabled={isInputDisabled()}
+        currentStep={currentStep}
+        currentPhase={currentPhase}
+       
+      />
+    </div>
+  );
   }
-};
-
-// Actualizar isInputDisabled para incluir los nuevos pasos
-const isInputDisabled = () => {
-  const allowedSteps = [
-    'employment_status',
-    'expert_selection',
-    'expert_preferences',
-    'final_confirmation',
-    'sector_selection',
-    'specific_area',
-    'region',
-    'companies',
-    'next_step',
-    'request_new_list',
-    'email',
-    'name',
-    'expert_connection',
-    'exclude_companies',
-    'client_perspective',
-    'supply_chain_experience',
-    'evaluation_questions',
-    'evaluation_sections',
-    'expert_search',
-  ];
-
-  return loading || 
-         (currentStep === 'complete' && !phase3Data.currentExpertStep) || 
-         !allowedSteps.includes(currentStep);
-};
-
-return (
-  <div className="chat-container">
-    {/* Eliminamos o reemplazamos el header con el indicador de fase */}
-    {/* Si quieres mantener el header pero sin el indicador, puedes usar:
-    <div className="chat-header">
-      <div className="chat-title">Expert Consultation</div>
-    </div>
-    */}
-    
-    <div className="chat-messages" ref={messagesContainerRef}>
-      {messages.map((message, index) => (
-        <ChatMessage 
-          key={index}
-          text={message.text}
-          type={message.type}
-        />
-      ))}
-      {loading && <div className="loading">Processing your request...</div>}
-      <div className="scroll-anchor"></div>
-    </div>
-    <ChatInput 
-      onSendMessage={handleSendMessage}
-      disabled={isInputDisabled()}
-      currentStep={currentStep}
-      currentPhase={currentPhase}
-     
-    />
-  </div>
-);
-}
-export default Chat
+  export default Chat
